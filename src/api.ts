@@ -1,5 +1,7 @@
+const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export async function getMe() {
-  const res = await fetch("http://localhost:8000/api/me", {
+  const res = await fetch(`${BASE}/api/me`, {
     credentials: "include",
   });
   if (!res.ok) throw new Error("unauthenticated");
@@ -7,8 +9,52 @@ export async function getMe() {
 }
 
 export async function logoutApi() {
-  await fetch("http://localhost:8000/api/logout", {
+  await fetch(`${BASE}/api/logout`, {
     method: "POST",
     credentials: "include",
   });
+}
+
+export async function registerEmail(data: { email: string; password: string; name?: string }) {
+  const res = await fetch(`${BASE}/api/register`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("register_failed");
+  return res.json();
+}
+
+export async function loginEmail(data: { email: string; password: string }) {
+  const res = await fetch(`${BASE}/api/login`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("login_failed");
+  return res.json();
+}
+
+export async function requestPasswordReset(email: string) {
+  const res = await fetch(`${BASE}/api/request-password-reset`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error("reset_request_failed");
+  return res.json();
+}
+
+export async function resetPasswordConfirm(params: { uid: string; token: string; password: string }) {
+  const res = await fetch(`${BASE}/api/reset-password-confirm`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error("reset_confirm_failed");
+  return res.json();
 }

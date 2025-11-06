@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react'; // Ajout de 'useState'
+import React, { useMemo, useRef, useState } from 'react';
 import { 
   User, 
   CheckCircle, 
@@ -11,15 +11,22 @@ import {
   ClipboardList,
   Pencil,
   Camera,
-  Image as ImageIcon, // Icône pour l'onglet Photos
-  PlusCircle // Icône pour ajouter une photo
+  Image as ImageIcon,
+  PlusCircle,
+  FileText, // NOUVEAU: Icône pour la Bio
+  Flag,       // NOUVEAU: Icône pour l'Objectif
 } from 'lucide-react';
 
 // --- Interface et Données de Test ---
 
+// NOUVEAU: Types pour les objectifs
+type ObjectifType = "Marathon" | "Semi-Marathon" | "10km" | "5km" | "Endurance" | "Vitesse" | "Perte de poids";
+
 interface UserProfile {
   profilePicture: string | null; 
-  gallery: string[]; // NOUVEAU: Pour la galerie de 5 photos
+  gallery: string[];
+  bio: string | null; // NOUVEAU
+  objectif: ObjectifType | null; // NOUVEAU
   nom: string;
   prenom: string;
   age: number | null;
@@ -33,7 +40,9 @@ interface UserProfile {
 // Données de test (INCOMPLET)
 const mockProfileIncomplet: UserProfile = {
   profilePicture: null,
-  gallery: [], // NOUVEAU
+  gallery: [],
+  bio: null, // NOUVEAU
+  objectif: null, // NOUVEAU
   nom: "Dupont",
   prenom: "", 
   age: 32,
@@ -47,10 +56,12 @@ const mockProfileIncomplet: UserProfile = {
 // Données de test pour un profil COMPLET
 const mockProfileComplet: UserProfile = {
   profilePicture: 'https://placehold.co/100x100/EBF8FF/3B82F6?text=AM',
-  gallery: [ // NOUVEAU: Exemples de photos
+  gallery: [
     'https://placehold.co/400x400/E0F2FE/0C4A6E?text=Course+1',
     'https://placehold.co/400x400/E0E7FF/3730A3?text=Course+2',
   ],
+  bio: "Coureur passionné lyonnais, je prépare mon premier marathon. J'aime les sorties longues le week-end et découvrir de nouveaux parcours dans la région.", // NOUVEAU
+  objectif: "Marathon", // NOUVEAU
   nom: "Martin",
   prenom: "Alice",
   age: 28,
@@ -61,7 +72,7 @@ const mockProfileComplet: UserProfile = {
   taille: 168,
 };
 
-// Liste des champs à vérifier
+// Liste des champs à vérifier (incluant bio et objectif)
 const PROFILE_FIELDS_TO_CHECK: (keyof UserProfile)[] = [
   'profilePicture',
   'nom', 
@@ -70,8 +81,9 @@ const PROFILE_FIELDS_TO_CHECK: (keyof UserProfile)[] = [
   'genre',
   'ville',
   'poids',
-  'taille'
-  // On ne compte pas la 'gallery' pour le % de complétion pour l'instant
+  'taille',
+  'bio', // NOUVEAU
+  'objectif' // NOUVEAU
 ];
 
 const MAX_GALLERY_PHOTOS = 5;
@@ -82,11 +94,10 @@ export default function ProfilPage() {
   
   const [profile, setProfile] = useState<UserProfile>(mockProfileIncomplet);
   const [isTestingComplet, setIsTestingComplet] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profil' | 'photos'>('profil'); // NOUVEAU: État pour les onglets
+  const [activeTab, setActiveTab] = useState<'profil' | 'photos'>('profil');
 
-  // Références pour les inputs de fichiers cachés
   const profilePictureInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null); // NOUVEAU
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Calcule le statut de complétion du profil
   const completionStatus = useMemo(() => {
@@ -98,8 +109,11 @@ export default function ProfilPage() {
       if (value !== null && value !== undefined && value !== "") {
         completedCount++;
       } else {
+        // Noms conviviaux pour la liste des champs manquants
         let fieldName = key.charAt(0).toUpperCase() + key.slice(1);
         if (key === 'profilePicture') fieldName = 'Photo de profil';
+        if (key === 'bio') fieldName = 'Biographie';
+        if (key === 'objectif') fieldName = 'Objectif';
         missingFields.push(fieldName);
       }
     });
@@ -114,6 +128,8 @@ export default function ProfilPage() {
   // Fonction de placeholder pour la modification
   const handleEdit = (field: keyof UserProfile) => {
     console.log(`Demande de modification pour le champ : ${field}`);
+    // Plus tard, si field === 'objectif', vous ouvrirez un modal avec un <select>
+    // Si field === 'bio', vous ouvrirez un <textarea>
   };
 
   // Fonction pour basculer les données de test
@@ -141,7 +157,7 @@ export default function ProfilPage() {
     console.log("Photo de profil sélectionnée:", file.name);
   };
 
-  // NOUVEAU: Ouvre la boîte de dialogue pour la galerie
+  // Ouvre la boîte de dialogue pour la galerie
   const handleGalleryUploadClick = () => {
     if (profile.gallery.length >= MAX_GALLERY_PHOTOS) {
       alert(`Vous ne pouvez ajouter que ${MAX_GALLERY_PHOTOS} photos au maximum.`);
@@ -150,7 +166,7 @@ export default function ProfilPage() {
     galleryInputRef.current?.click();
   };
 
-  // NOUVEAU: Gère le fichier sélectionné pour la galerie
+  // Gère le fichier sélectionné pour la galerie
   const handleGalleryFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -166,7 +182,6 @@ export default function ProfilPage() {
     }));
     console.log("Photo de galerie ajoutée:", file.name);
 
-    // Vider l'input pour permettre de sélectionner le même fichier à nouveau
     if (event.target) {
       event.target.value = "";
     }
@@ -236,7 +251,7 @@ export default function ProfilPage() {
           </button>
         </div>
         
-        {/* NOUVEAU: Barre d'onglets */}
+        {/* Barre d'onglets */}
         <div className="mb-6">
           <div className="border-b border-gray-300">
             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
@@ -265,10 +280,9 @@ export default function ProfilPage() {
             </nav>
           </div>
         </div>
-        {/* FIN: Barre d'onglets */}
 
 
-        {/* NOUVEAU: Contenu conditionnel des onglets */}
+        {/* Contenu conditionnel des onglets */}
         
         {/* Onglet Profil */}
         {activeTab === 'profil' && (
@@ -304,8 +318,27 @@ export default function ProfilPage() {
                   <p className="text-gray-600">{profile.ville || 'Localisation inconnue'}</p>
                 </div>
               </div>
+              
+              {/* NOUVEAU: Bloc Bio */}
+              <div className="mt-8 mb-6 group relative">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
+                  <FileText className="w-5 h-5 mr-2 text-blue-500" />
+                  Ma Bio
+                </h3>
+                <p className="text-gray-600 italic text-sm leading-relaxed">
+                  {profile.bio || 'Aucune biographie. Cliquez sur le stylo pour en ajouter une.'}
+                </p>
+                <button
+                  onClick={() => handleEdit('bio')}
+                  className="absolute top-0 right-0 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition-opacity duration-200"
+                  aria-label="Modifier la biographie"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
+              {/* --- Fin Bloc Bio --- */}
 
-              <div className="space-y-2">
+              <div className="space-y-2 border-t pt-4">
                 <InfoItem icon={User} label="Nom" value={profile.nom} fieldKey="nom" onEditClick={handleEdit} />
                 <InfoItem icon={User} label="Prénom" value={profile.prenom} fieldKey="prenom" onEditClick={handleEdit} />
                 <InfoItem icon={Calendar} label="Âge" value={profile.age ? `${profile.age} ans` : null} fieldKey="age" onEditClick={handleEdit} />
@@ -313,6 +346,9 @@ export default function ProfilPage() {
                 <InfoItem icon={MapPin} label="Ville" value={profile.ville} fieldKey="ville" onEditClick={handleEdit} />
                 <InfoItem icon={Target} label="Poids" value={profile.poids ? `${profile.poids} kg` : null} fieldKey="poids" onEditClick={handleEdit} />
                 <InfoItem icon={Target} label="Taille" value={profile.taille ? `${profile.taille} cm` : null} fieldKey="taille" onEditClick={handleEdit} />
+                
+                {/* NOUVEAU: InfoItem Objectif */}
+                <InfoItem icon={Flag} label="Objectif" value={profile.objectif} fieldKey="objectif" onEditClick={handleEdit} />
               </div>
             </div>
 
@@ -377,7 +413,7 @@ export default function ProfilPage() {
           </div>
         )}
 
-        {/* NOUVEAU: Onglet Photos */}
+        {/* Onglet Photos */}
         {activeTab === 'photos' && (
           <div className="bg-white p-6 md:p-8 rounded-lg shadow-lg">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Ma Galerie Photos</h2>
@@ -388,7 +424,6 @@ export default function ProfilPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               
-              {/* Afficher les photos existantes */}
               {profile.gallery.map((photoUrl, index) => (
                 <div key={index} className="relative aspect-square">
                   <img 
@@ -397,14 +432,9 @@ export default function ProfilPage() {
                     className="w-full h-full object-cover rounded-lg shadow-md"
                     onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x400?text=Erreur')}
                   />
-                  {/* Optionnel: Bouton pour supprimer (non implémenté) */}
-                  {/* <button className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md">
-                    <X className="w-4 h-4" />
-                  </button> */}
                 </div>
               ))}
 
-              {/* Bouton pour ajouter une nouvelle photo (si non plein) */}
               {profile.gallery.length < MAX_GALLERY_PHOTOS && (
                 <button
                   onClick={handleGalleryUploadClick}

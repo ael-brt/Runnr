@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react'; // Ajout de 'useRef'
+import React, { useMemo, useRef, useState } from 'react'; // Ajout de 'useState'
 import { 
   User, 
   CheckCircle, 
@@ -10,19 +10,21 @@ import {
   ChevronRight,
   ClipboardList,
   Pencil,
-  Camera // Ajout de l'icône Camera
+  Camera,
+  Image as ImageIcon, // Icône pour l'onglet Photos
+  PlusCircle // Icône pour ajouter une photo
 } from 'lucide-react';
 
 // --- Interface et Données de Test ---
 
 interface UserProfile {
-  profilePicture: string | null; // NOUVEAU: pour l'URL de la photo
+  profilePicture: string | null; 
+  gallery: string[]; // NOUVEAU: Pour la galerie de 5 photos
   nom: string;
   prenom: string;
   age: number | null;
   genre: string | null;
   performance: string[];
-  // On peut ajouter d'autres champs ici
   ville?: string;
   poids?: number; // kg
   taille?: number; // cm
@@ -30,20 +32,25 @@ interface UserProfile {
 
 // Données de test (INCOMPLET)
 const mockProfileIncomplet: UserProfile = {
-  profilePicture: null, // NOUVEAU
+  profilePicture: null,
+  gallery: [], // NOUVEAU
   nom: "Dupont",
-  prenom: "", // Champ incomplet
+  prenom: "", 
   age: 32,
-  genre: null, // Champ incomplet
+  genre: null, 
   performance: ["10km en 45min", "5km en 20min"],
   ville: "Lyon",
   poids: 75,
-  taille: undefined, // Champ incomplet
+  taille: undefined,
 };
 
 // Données de test pour un profil COMPLET
 const mockProfileComplet: UserProfile = {
-  profilePicture: 'https://placehold.co/100x100/EBF8FF/3B82F6?text=AM', // NOUVEAU: Un placeholder
+  profilePicture: 'https://placehold.co/100x100/EBF8FF/3B82F6?text=AM',
+  gallery: [ // NOUVEAU: Exemples de photos
+    'https://placehold.co/400x400/E0F2FE/0C4A6E?text=Course+1',
+    'https://placehold.co/400x400/E0E7FF/3730A3?text=Course+2',
+  ],
   nom: "Martin",
   prenom: "Alice",
   age: 28,
@@ -54,9 +61,9 @@ const mockProfileComplet: UserProfile = {
   taille: 168,
 };
 
-// Liste des champs à vérifier (incluant la photo)
+// Liste des champs à vérifier
 const PROFILE_FIELDS_TO_CHECK: (keyof UserProfile)[] = [
-  'profilePicture', // NOUVEAU
+  'profilePicture',
   'nom', 
   'prenom', 
   'age', 
@@ -64,20 +71,22 @@ const PROFILE_FIELDS_TO_CHECK: (keyof UserProfile)[] = [
   'ville',
   'poids',
   'taille'
+  // On ne compte pas la 'gallery' pour le % de complétion pour l'instant
 ];
+
+const MAX_GALLERY_PHOTOS = 5;
 
 // --- Composant Principal ---
 
 export default function ProfilPage() {
   
-  // On initialise avec le profil incomplet
-  const [profile, setProfile] = React.useState<UserProfile>(mockProfileIncomplet);
+  const [profile, setProfile] = useState<UserProfile>(mockProfileIncomplet);
+  const [isTestingComplet, setIsTestingComplet] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profil' | 'photos'>('profil'); // NOUVEAU: État pour les onglets
 
-  // état pour savoir quel profil on teste
-  const [isTestingComplet, setIsTestingComplet] = React.useState(false);
-  
-  // NOUVEAU: Référence pour l'input de fichier caché
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Références pour les inputs de fichiers cachés
+  const profilePictureInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null); // NOUVEAU
 
   // Calcule le statut de complétion du profil
   const completionStatus = useMemo(() => {
@@ -86,13 +95,11 @@ export default function ProfilPage() {
 
     PROFILE_FIELDS_TO_CHECK.forEach(key => {
       const value = profile[key];
-      // Vérifie si la valeur est "truthy" (pas null, undefined, "", 0)
       if (value !== null && value !== undefined && value !== "") {
         completedCount++;
       } else {
-        // Capitaliser le nom du champ pour l'affichage
         let fieldName = key.charAt(0).toUpperCase() + key.slice(1);
-        if (key === 'profilePicture') fieldName = 'Photo de profil'; // Nom plus joli
+        if (key === 'profilePicture') fieldName = 'Photo de profil';
         missingFields.push(fieldName);
       }
     });
@@ -100,79 +107,89 @@ export default function ProfilPage() {
     const totalFields = PROFILE_FIELDS_TO_CHECK.length;
     const percentage = Math.round((completedCount / totalFields) * 100);
     
-    return {
-      percentage,
-      missingFields,
-      isComplete: missingFields.length === 0
-    };
+    return { percentage, missingFields, isComplete: missingFields.length === 0 };
   }, [profile]);
 
 
   // Fonction de placeholder pour la modification
   const handleEdit = (field: keyof UserProfile) => {
-    // Pour l'instant, on affiche juste un message dans la console.
     console.log(`Demande de modification pour le champ : ${field}`);
   };
 
   // Fonction pour basculer les données de test
   const handleToggleTestData = () => {
-    if (isTestingComplet) {
-      setProfile(mockProfileIncomplet);
-      setIsTestingComplet(false);
-    } else {
-      setProfile(mockProfileComplet);
-      setIsTestingComplet(true);
-    }
+    const newProfile = isTestingComplet ? mockProfileIncomplet : mockProfileComplet;
+    setProfile(newProfile);
+    setIsTestingComplet(!isTestingComplet);
   };
 
-  // NOUVEAU: Ouvre la boîte de dialogue de fichier
+  // Ouvre la boîte de dialogue pour la photo de profil
   const handlePictureClick = () => {
-    fileInputRef.current?.click();
+    profilePictureInputRef.current?.click();
   };
 
-  // NOUVEAU: Gère le fichier sélectionné
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Gère le fichier sélectionné pour la photo de profil
+  const handleProfilePictureChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      return; // Pas de fichier sélectionné
-    }
+    if (!file) return;
 
-    // Crée une URL locale temporaire pour l'aperçu de l'image
     const newPictureUrl = URL.createObjectURL(file);
-    
-    // Met à jour l'état du profil avec la nouvelle URL de l'image
     setProfile(prevProfile => ({
       ...prevProfile,
       profilePicture: newPictureUrl
     }));
+    console.log("Photo de profil sélectionnée:", file.name);
+  };
 
-    // Ici, vous ajouteriez la logique pour uploader le `file`
-    // vers votre backend (Django)
-    console.log("Fichier sélectionné, prêt pour l'upload:", file.name);
+  // NOUVEAU: Ouvre la boîte de dialogue pour la galerie
+  const handleGalleryUploadClick = () => {
+    if (profile.gallery.length >= MAX_GALLERY_PHOTOS) {
+      alert(`Vous ne pouvez ajouter que ${MAX_GALLERY_PHOTOS} photos au maximum.`);
+      return;
+    }
+    galleryInputRef.current?.click();
+  };
+
+  // NOUVEAU: Gère le fichier sélectionné pour la galerie
+  const handleGalleryFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (profile.gallery.length >= MAX_GALLERY_PHOTOS) {
+      return; // Sécurité
+    }
+
+    const newPhotoUrl = URL.createObjectURL(file);
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      gallery: [...prevProfile.gallery, newPhotoUrl]
+    }));
+    console.log("Photo de galerie ajoutée:", file.name);
+
+    // Vider l'input pour permettre de sélectionner le même fichier à nouveau
+    if (event.target) {
+      event.target.value = "";
+    }
   };
 
 
-  // Un composant interne pour afficher joliment une info
+  // Composant interne pour un item d'info
   const InfoItem: React.FC<{
     icon: React.ElementType,
     label: string,
     value: string | number | null | undefined,
-    fieldKey: keyof UserProfile, // Savoir quel champ on édite
-    onEditClick: (field: keyof UserProfile) => void // La fonction à appeler
+    fieldKey: keyof UserProfile, 
+    onEditClick: (field: keyof UserProfile) => void
   }> = ({ icon: Icon, label, value, fieldKey, onEditClick }) => (
-    // Ajout de "group" pour permettre au bouton d'apparaître au survol de la ligne
     <div className="flex items-center justify-between py-3 border-b border-gray-200 group">
       <div className="flex items-center text-gray-600">
         <Icon className="w-5 h-5 mr-3 text-blue-500" />
         <span className="font-medium">{label}</span>
       </div>
-
-      {/* On ajoute un conteneur flex pour la valeur ET le bouton */}
       <div className="flex items-center space-x-2">
         <span className={`text-gray-900 ${!value ? 'text-gray-400 italic' : ''}`}>
           {value || 'Non renseigné'}
         </span>
-        {/* Le bouton "stylo" */}
         <button
           onClick={() => onEditClick(fieldKey)}
           className="text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition-opacity duration-200"
@@ -186,25 +203,30 @@ export default function ProfilPage() {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 md:p-8">
-      {/* NOUVEAU: Input de fichier caché */}
+      {/* Inputs de fichiers cachés */}
       <input
         type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden" // Rendre l'input invisible
-        accept="image/png, image/jpeg" // N'accepter que les images
-        data-testid="file-input" // Utile pour les tests
+        ref={profilePictureInputRef}
+        onChange={handleProfilePictureChange}
+        className="hidden"
+        accept="image/png, image/jpeg"
+      />
+      <input
+        type="file"
+        ref={galleryInputRef}
+        onChange={handleGalleryFileChange}
+        className="hidden"
+        accept="image/png, image/jpeg"
       />
 
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Mon Profil</h1>
 
-        {/* --- Bouton de Test --- */}
+        {/* Bouton de Test */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
           <h3 className="font-semibold text-blue-800">Zone de Test</h3>
           <p className="text-sm text-blue-700 mb-3">
             Cliquez sur ce bouton pour basculer entre un profil complet et un profil incomplet.
-            Cela permet de *tester visuellement* la logique de complétion (US#6).
           </p>
           <button
             onClick={handleToggleTestData}
@@ -214,114 +236,193 @@ export default function ProfilPage() {
           </button>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* --- Carte Principale (Profil) --- */}
-          <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-lg shadow-lg">
-            <div className="flex items-center mb-6">
-              
-              {/* --- MODIFICATION: Avatar cliquable --- */}
+        {/* NOUVEAU: Barre d'onglets */}
+        <div className="mb-6">
+          <div className="border-b border-gray-300">
+            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
               <button
-                onClick={handlePictureClick}
-                className="relative w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mr-6 border-4 border-white shadow-md group transition-all"
-                aria-label="Modifier la photo de profil"
+                onClick={() => setActiveTab('profil')}
+                className={`flex items-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-all
+                  ${activeTab === 'profil'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
-                {profile.profilePicture ? (
-                  <img 
-                    src={profile.profilePicture} 
-                    alt="Photo de profil" 
-                    className="w-full h-full rounded-full object-cover" 
-                  />
-                ) : (
-                  <User className="w-10 h-10 text-blue-600" />
-                )}
-                {/* Overlay pour l'icône "modifier" */}
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-full flex items-center justify-center transition-all duration-300">
-                  <Camera className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
+                <User className="w-5 h-5 mr-2" />
+                Profil
               </button>
-              {/* --- FIN MODIFICATION --- */}
-
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {profile.prenom || 'Utilisateur'} {profile.nom || ''}
-                </h2>
-                <p className="text-gray-600">{profile.ville || 'Localisation inconnue'}</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <InfoItem icon={User} label="Nom" value={profile.nom} fieldKey="nom" onEditClick={handleEdit} />
-              <InfoItem icon={User} label="Prénom" value={profile.prenom} fieldKey="prenom" onEditClick={handleEdit} />
-              <InfoItem icon={Calendar} label="Âge" value={profile.age ? `${profile.age} ans` : null} fieldKey="age" onEditClick={handleEdit} />
-              <InfoItem icon={Info} label="Genre" value={profile.genre} fieldKey="genre" onEditClick={handleEdit} />
-              <InfoItem icon={MapPin} label="Ville" value={profile.ville} fieldKey="ville" onEditClick={handleEdit} />
-              <InfoItem icon={Target} label="Poids" value={profile.poids ? `${profile.poids} kg` : null} fieldKey="poids" onEditClick={handleEdit} />
-              <InfoItem icon={Target} label="Taille" value={profile.taille ? `${profile.taille} cm` : null} fieldKey="taille" onEditClick={handleEdit} />
-            </div>
+              <button
+                onClick={() => setActiveTab('photos')}
+                className={`flex items-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-all
+                  ${activeTab === 'photos'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <ImageIcon className="w-5 h-5 mr-2" />
+                Photos
+              </button>
+            </nav>
           </div>
+        </div>
+        {/* FIN: Barre d'onglets */}
 
-          {/* --- Colonne de Droite (Complétion & Performances) --- */}
-          <div className="space-y-6">
 
-            {/* --- Carte de Complétion (US#6) --- */}
-            <div className={`bg-white p-6 rounded-lg shadow-lg ${completionStatus.isComplete ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500'}`}>
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">
-                Complétion du Profil
-              </h3>
-              
-              <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden mb-3">
-                <div 
-                  className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${completionStatus.isComplete ? 'bg-green-500' : 'bg-red-500'}`}
-                  style={{ width: `${completionStatus.percentage}%` }}
-                />
-              </div>
-              <p className="text-right font-semibold text-gray-700 mb-4">{completionStatus.percentage}%</p>
-
-              {completionStatus.isComplete ? (
-                <div className="flex items-center text-green-600">
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  <span className="font-medium">Votre profil est complet !</span>
-                </div>
-              ) : (
-                <div>
-                  <div className="flex items-center text-red-600 mb-3">
-                    <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0" />
-                    <span className="font-medium">Profil incomplet.</span>
+        {/* NOUVEAU: Contenu conditionnel des onglets */}
+        
+        {/* Onglet Profil */}
+        {activeTab === 'profil' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Carte Principale (Profil) */}
+            <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-lg shadow-lg">
+              <div className="flex items-center mb-6">
+                
+                <button
+                  onClick={handlePictureClick}
+                  className="relative w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mr-6 border-4 border-white shadow-md group transition-all"
+                  aria-label="Modifier la photo de profil"
+                >
+                  {profile.profilePicture ? (
+                    <img 
+                      src={profile.profilePicture} 
+                      alt="Photo de profil" 
+                      className="w-full h-full rounded-full object-cover" 
+                    />
+                  ) : (
+                    <User className="w-10 h-10 text-blue-600" />
+                  )}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-full flex items-center justify-center transition-all duration-300">
+                    <Camera className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">Champs manquants :</p>
-                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                    {completionStatus.missingFields.map(field => (
-                      <li key={field}>{field}</li>
+                </button>
+
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {profile.prenom || 'Utilisateur'} {profile.nom || ''}
+                  </h2>
+                  <p className="text-gray-600">{profile.ville || 'Localisation inconnue'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <InfoItem icon={User} label="Nom" value={profile.nom} fieldKey="nom" onEditClick={handleEdit} />
+                <InfoItem icon={User} label="Prénom" value={profile.prenom} fieldKey="prenom" onEditClick={handleEdit} />
+                <InfoItem icon={Calendar} label="Âge" value={profile.age ? `${profile.age} ans` : null} fieldKey="age" onEditClick={handleEdit} />
+                <InfoItem icon={Info} label="Genre" value={profile.genre} fieldKey="genre" onEditClick={handleEdit} />
+                <InfoItem icon={MapPin} label="Ville" value={profile.ville} fieldKey="ville" onEditClick={handleEdit} />
+                <InfoItem icon={Target} label="Poids" value={profile.poids ? `${profile.poids} kg` : null} fieldKey="poids" onEditClick={handleEdit} />
+                <InfoItem icon={Target} label="Taille" value={profile.taille ? `${profile.taille} cm` : null} fieldKey="taille" onEditClick={handleEdit} />
+              </div>
+            </div>
+
+            {/* Colonne de Droite (Complétion & Performances) */}
+            <div className="space-y-6">
+
+              {/* Carte de Complétion (US#6) */}
+              <div className={`bg-white p-6 rounded-lg shadow-lg ${completionStatus.isComplete ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500'}`}>
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">
+                  Complétion du Profil
+                </h3>
+                
+                <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden mb-3">
+                  <div 
+                    className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${completionStatus.isComplete ? 'bg-green-500' : 'bg-red-500'}`}
+                    style={{ width: `${completionStatus.percentage}%` }}
+                  />
+                </div>
+                <p className="text-right font-semibold text-gray-700 mb-4">{completionStatus.percentage}%</p>
+
+                {completionStatus.isComplete ? (
+                  <div className="flex items-center text-green-600">
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    <span className="font-medium">Votre profil est complet !</span>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center text-red-600 mb-3">
+                      <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0" />
+                      <span className="font-medium">Profil incomplet.</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">Champs manquants :</p>
+                    <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                      {completionStatus.missingFields.map(field => (
+                        <li key={field}>{field}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Carte des Performances */}
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+                  <ClipboardList className="w-5 h-5 mr-2 text-blue-500" />
+                  Performances
+                </h3>
+                {profile.performance.length > 0 ? (
+                  <ul className="space-y-3">
+                    {profile.performance.map((perf, index) => (
+                      <li key={index} className="flex items-center text-gray-700">
+                        <ChevronRight className="w-4 h-4 mr-2 text-gray-400" />
+                        {perf}
+                      </li>
                     ))}
                   </ul>
-                </div>
-              )}
+                ) : (
+                  <p className="text-gray-500 italic text-sm">Aucune performance enregistrée.</p>
+                )}
+              </div>
             </div>
-
-            {/* --- Carte des Performances --- */}
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
-                <ClipboardList className="w-5 h-5 mr-2 text-blue-500" />
-                Performances
-              </h3>
-              {profile.performance.length > 0 ? (
-                <ul className="space-y-3">
-                  {profile.performance.map((perf, index) => (
-                    <li key={index} className="flex items-center text-gray-700">
-                      <ChevronRight className="w-4 h-4 mr-2 text-gray-400" />
-                      {perf}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500 italic text-sm">Aucune performance enregistrée.</p>
-              )}
-            </div>
-
           </div>
+        )}
 
-        </div>
+        {/* NOUVEAU: Onglet Photos */}
+        {activeTab === 'photos' && (
+          <div className="bg-white p-6 md:p-8 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Ma Galerie Photos</h2>
+            <p className="text-gray-600 mb-6">
+              Ajoutez jusqu'à {MAX_GALLERY_PHOTOS} photos pour personnaliser votre profil. 
+              ({profile.gallery.length} / {MAX_GALLERY_PHOTOS} ajoutées)
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              
+              {/* Afficher les photos existantes */}
+              {profile.gallery.map((photoUrl, index) => (
+                <div key={index} className="relative aspect-square">
+                  <img 
+                    src={photoUrl} 
+                    alt={`Galerie ${index + 1}`} 
+                    className="w-full h-full object-cover rounded-lg shadow-md"
+                    onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x400?text=Erreur')}
+                  />
+                  {/* Optionnel: Bouton pour supprimer (non implémenté) */}
+                  {/* <button className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md">
+                    <X className="w-4 h-4" />
+                  </button> */}
+                </div>
+              ))}
+
+              {/* Bouton pour ajouter une nouvelle photo (si non plein) */}
+              {profile.gallery.length < MAX_GALLERY_PHOTOS && (
+                <button
+                  onClick={handleGalleryUploadClick}
+                  className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg 
+                             flex flex-col items-center justify-center 
+                             text-gray-500 hover:bg-gray-100 hover:border-blue-500 hover:text-blue-600 
+                             transition-all duration-300"
+                  aria-label="Ajouter une photo à la galerie"
+                >
+                  <PlusCircle className="w-12 h-12" />
+                  <span className="mt-2 text-sm font-medium text-center px-2">Ajouter une photo</span>
+                </button>
+              )}
+
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

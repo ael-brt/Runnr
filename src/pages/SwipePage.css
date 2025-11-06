@@ -1,0 +1,72 @@
+/* Runnr/src/pages/SwipePage.css (Ajouts/Modifications) */
+
+.swipe-card {
+  position: absolute;
+  width: 300px;
+  height: 400px;
+  border-radius: 15px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  
+  /* MODIFIÉ: Utiliser flex pour positionner le contenu en bas */
+  color: white;
+  display: flex;
+  flex-direction: column; /* Organiser le contenu verticalement */
+  justify-content: flex-end; /* Pousser le contenu vers le bas */
+  padding: 15px;
+  box-sizing: border-box; 
+
+  transition: transform 0.3s ease-out;
+  user-select: none; 
+
+  /* Ajout d'un dégradé pour que le texte soit lisible */
+  background-image: 
+    linear-gradient(to top, rgba(0,0,0,0.7) 10%, rgba(0,0,0,0) 40%),
+    var(--card-image-url); /* L'URL de l'image sera définie en inline style */
+}
+
+/* NOUVEAU: Conteneur pour les infos en bas de la carte */
+.swipe-card-info {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.swipe-card-info h3 {
+  margin: 0;
+  font-size: 1.75rem; /* 28px */
+}
+
+/* NOUVEAU: Style pour la localisation */
+.swipe-card-location {
+  display: flex;
+  align-items: center;
+  font-size: 1rem; /* 16px */
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.swipe-card-location .location-icon {
+  margin-right: 6px;
+  flex-shrink: 0; /* Empêche l'icône de rétrécir */
+}
+
+/* Modification pour que le style 'backgroundImage' JS fonctionne */
+/* (Nous devons séparer l'URL de l'image du dégradé) */
+.swipe-card {
+  /* ... (styles précédents) ... */
+
+  /* Nous utilisons une variable CSS pour l'URL de l'image */
+  background-image: 
+    linear-gradient(to top, rgba(0,0,0,0.7) 10%, rgba(0,0,0,0) 40%),
+    var(--card-image-url);
+}
+
+/* Et dans le JSX, le style doit être : */
+/*
+  style={{ 
+    ...getCardStyle(), 
+    zIndex: 100,
+    // On assigne l'URL à la variable CSS
+    '--card-image-url': `url(${profile.imageUrl})` 
+  }}
+*/

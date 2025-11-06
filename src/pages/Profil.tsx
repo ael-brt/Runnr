@@ -13,26 +13,25 @@ import {
   Camera,
   Image as ImageIcon,
   PlusCircle,
-  FileText, // NOUVEAU: Icône pour la Bio
-  Flag,       // NOUVEAU: Icône pour l'Objectif
+  FileText, 
+  Flag,       
 } from 'lucide-react';
 
 // --- Interface et Données de Test ---
 
-// NOUVEAU: Types pour les objectifs
 type ObjectifType = "Marathon" | "Semi-Marathon" | "10km" | "5km" | "Endurance" | "Vitesse" | "Perte de poids";
 
 interface UserProfile {
   profilePicture: string | null; 
   gallery: string[];
-  bio: string | null; // NOUVEAU
-  objectif: ObjectifType | null; // NOUVEAU
+  bio: string | null; 
+  objectif: ObjectifType | null; 
   nom: string;
   prenom: string;
   age: number | null;
   genre: string | null;
   performance: string[];
-  ville?: string;
+  ville?: string; // Ce champ représente la commune
   poids?: number; // kg
   taille?: number; // cm
 }
@@ -41,14 +40,14 @@ interface UserProfile {
 const mockProfileIncomplet: UserProfile = {
   profilePicture: null,
   gallery: [],
-  bio: null, // NOUVEAU
-  objectif: null, // NOUVEAU
+  bio: null, 
+  objectif: null, 
   nom: "Dupont",
   prenom: "", 
   age: 32,
   genre: null, 
   performance: ["10km en 45min", "5km en 20min"],
-  ville: "Lyon",
+  ville: "Lyon", // Exemple de commune
   poids: 75,
   taille: undefined,
 };
@@ -60,14 +59,14 @@ const mockProfileComplet: UserProfile = {
     'https://placehold.co/400x400/E0F2FE/0C4A6E?text=Course+1',
     'https://placehold.co/400x400/E0E7FF/3730A3?text=Course+2',
   ],
-  bio: "Coureur passionné lyonnais, je prépare mon premier marathon. J'aime les sorties longues le week-end et découvrir de nouveaux parcours dans la région.", // NOUVEAU
-  objectif: "Marathon", // NOUVEAU
+  bio: "Coureur passionné lyonnais, je prépare mon premier marathon. J'aime les sorties longues le week-end et découvrir de nouveaux parcours dans la région.",
+  objectif: "Marathon", 
   nom: "Martin",
   prenom: "Alice",
   age: 28,
   genre: "Féminin",
   performance: ["Semi-marathon en 1h45"],
-  ville: "Paris",
+  ville: "Paris", // Exemple de commune
   poids: 62,
   taille: 168,
 };
@@ -79,11 +78,11 @@ const PROFILE_FIELDS_TO_CHECK: (keyof UserProfile)[] = [
   'prenom', 
   'age', 
   'genre',
-  'ville',
+  'ville', // Le champ 'ville' est déjà ici
   'poids',
   'taille',
-  'bio', // NOUVEAU
-  'objectif' // NOUVEAU
+  'bio', 
+  'objectif' 
 ];
 
 const MAX_GALLERY_PHOTOS = 5;
@@ -114,6 +113,7 @@ export default function ProfilPage() {
         if (key === 'profilePicture') fieldName = 'Photo de profil';
         if (key === 'bio') fieldName = 'Biographie';
         if (key === 'objectif') fieldName = 'Objectif';
+        if (key === 'ville') fieldName = 'Commune'; // MODIFIÉ: Libellé pour la complétion
         missingFields.push(fieldName);
       }
     });
@@ -128,8 +128,7 @@ export default function ProfilPage() {
   // Fonction de placeholder pour la modification
   const handleEdit = (field: keyof UserProfile) => {
     console.log(`Demande de modification pour le champ : ${field}`);
-    // Plus tard, si field === 'objectif', vous ouvrirez un modal avec un <select>
-    // Si field === 'bio', vous ouvrirez un <textarea>
+    // Si field === 'ville', vous ouvrirez un modal de recherche de commune
   };
 
   // Fonction pour basculer les données de test
@@ -315,11 +314,12 @@ export default function ProfilPage() {
                   <h2 className="text-2xl font-bold text-gray-900">
                     {profile.prenom || 'Utilisateur'} {profile.nom || ''}
                   </h2>
-                  <p className="text-gray-600">{profile.ville || 'Localisation inconnue'}</p>
+                  {/* MODIFIÉ: Libellé pour le placeholder de localisation */}
+                  <p className="text-gray-600">{profile.ville || 'Commune inconnue'}</p>
                 </div>
               </div>
               
-              {/* NOUVEAU: Bloc Bio */}
+              {/* Bloc Bio */}
               <div className="mt-8 mb-6 group relative">
                 <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
                   <FileText className="w-5 h-5 mr-2 text-blue-500" />
@@ -343,11 +343,11 @@ export default function ProfilPage() {
                 <InfoItem icon={User} label="Prénom" value={profile.prenom} fieldKey="prenom" onEditClick={handleEdit} />
                 <InfoItem icon={Calendar} label="Âge" value={profile.age ? `${profile.age} ans` : null} fieldKey="age" onEditClick={handleEdit} />
                 <InfoItem icon={Info} label="Genre" value={profile.genre} fieldKey="genre" onEditClick={handleEdit} />
-                <InfoItem icon={MapPin} label="Ville" value={profile.ville} fieldKey="ville" onEditClick={handleEdit} />
+                {/* MODIFIÉ: Libellé de "Ville" à "Commune" */}
+                <InfoItem icon={MapPin} label="Commune" value={profile.ville} fieldKey="ville" onEditClick={handleEdit} />
                 <InfoItem icon={Target} label="Poids" value={profile.poids ? `${profile.poids} kg` : null} fieldKey="poids" onEditClick={handleEdit} />
                 <InfoItem icon={Target} label="Taille" value={profile.taille ? `${profile.taille} cm` : null} fieldKey="taille" onEditClick={handleEdit} />
                 
-                {/* NOUVEAU: InfoItem Objectif */}
                 <InfoItem icon={Flag} label="Objectif" value={profile.objectif} fieldKey="objectif" onEditClick={handleEdit} />
               </div>
             </div>

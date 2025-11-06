@@ -14,6 +14,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
+from django.db import transaction
+from authapp.models import RunnerProfile
+from social_django.models import UserSocialAuth
 
 # FRONTEND_URL pour rediriger après login
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -223,3 +226,48 @@ def reset_password_confirm(request):
     user.set_password(new_password)
     user.save()
     return Response({"ok": True})
+
+# ======  Suppression de compte ======
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@csrf_exempt  # POC: comme tes autres endpoints
+def delete_account(request):
+    """
+    Supprime définitivement le compte et les données associées.
+    JSON attendu: { "confirm": "DELETE", "password": "<optionnel>" }
+    - Si le user a un mot de passe local, on le vérifie.
+    - Si compte social only, seule la confirmation texte est requise.
+    """
+    try:
+        data = json.loads(request.body or b"{}")
+    except Exception:
+        return Response({"error": "JSON invalide"}, status=400)
+
+    confirm = (data.get("confirm") or "").strip().upper()
+    if confirm != "DELETE":
+        return Response({"error": "confirmation requise: 'DELETE'"}, status=400)
+
+    user = request.user
+    password = data.get("password", "")
+
+    # Vérification du mot de passe si utilisable
+    if user.has_usable_password():
+        if not password:
+            return Response({"error": "mot de passe requis"}, status=400)
+        if not user.check_password(password):
+            return Response({"error": "mot de passe incorrect"}, status=403)
+
+    # Suppression transactionnelle
+    with transaction.atomic():
+        # Données liées (adapter si d'autres modèles existent)
+        RunnerProfile.objects.filter(user=user).delete()
+        UserSocialAuth.objects.filter(user=user).delete()
+        # Supprime l'utilisateur
+        user.delete()
+
+    # Déconnexion + suppression cookies
+    resp = Response({"ok": True, "message": "Compte et données supprimés."})
+    logout(request)
+    resp.delete_cookie("access_token")
+    resp.delete_cookie("refresh_token")
+    return resp

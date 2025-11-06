@@ -1,0 +1,5 @@
+Django>=4.2,<5.3
+djangorestframework>=3.15,<4
+djangorestframework-simplejwt>=5.3,<6
+social-auth-app-django>=5.4,<6
+django-cors-headers>=4.4,<5

@@ -79,6 +79,23 @@ npm run dev
 ```
 Par défaut: http://localhost:5173
 
+### d. Tests (Vitest + Testing Library)
+Installation des dépendances (si pas déjà fait):
+```bash
+npm install
+```
+Lancer les tests en mode CLI:
+```bash
+npm test
+```
+Interface UI (facultatif):
+```bash
+npm run test:ui
+```
+Configuration:
+- Environnement: jsdom
+- Fichier de setup: `src/test-setup.ts`
+
 ## 3) Parcours d’authentification
 
 - Inscription e‑mail: `/signup`

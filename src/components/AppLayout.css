@@ -12,6 +12,7 @@
 */
 .app-content {
   flex-grow: 1;
+  padding-top: 56px; /* hauteur top bar */
   padding-bottom: 80px; /* Doit être > que la hauteur de .bottom-nav */
 }
 
@@ -57,4 +58,29 @@
 .nav-link.active {
   color: #3B82F6; /* Couleur bleue active (similaire à votre Profil.tsx) */
   font-weight: 600;
+}
+
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  z-index: 1001;
+}
+.top-bar-inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+}
+.spacer { flex: 1; }
+.logout-btn {
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fafafa;
 }

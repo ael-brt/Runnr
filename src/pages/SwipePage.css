@@ -70,3 +70,16 @@
     '--card-image-url': `url(${profile.imageUrl})` 
   }}
 */
+/* Conteneur principal centré */
+.swipe-page-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100dvh - 56px - 80px); /* tenir compte des barres haut/bas */
+}
+
+.swipe-card-deck {
+  position: relative;
+  width: 300px;
+  height: 420px;
+}

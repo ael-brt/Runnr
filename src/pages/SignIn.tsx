@@ -25,7 +25,8 @@ export default function SignIn() {
               await loginEmail({ email, password });
               nav("/dashboard");
             } catch (e) {
-              setError("Identifiants invalides");
+              const msg = e instanceof Error ? e.message : "Identifiants invalides";
+              setError(msg);
             }
           }}
         >

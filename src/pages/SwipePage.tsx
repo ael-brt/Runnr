@@ -1,6 +1,5 @@
 // Runnr/src/pages/SwipePage.tsx
 import React, { useState, MouseEvent } from "react";
-import { MapPin } from 'lucide-react'; // 1. Importer l'icône de localisation
 import "./SwipePage.css"; // 2. Importer le fichier CSS
 
 // 3. Mettre à jour l'interface pour inclure la commune et la distance
@@ -151,7 +150,7 @@ export default function SwipePage() {
                     <div className="swipe-card-info">
                       <h3>{profile.name}</h3>
                       <div className="swipe-card-location">
-                        <MapPin size={16} className="location-icon" />
+                        <span className="location-icon" role="img" aria-label="localisation">📍</span>
                         <span>{profile.commune} (à {profile.distanceKm} km)</span>
                       </div>
                     </div>
@@ -172,7 +171,7 @@ export default function SwipePage() {
                   <div className="swipe-card-info">
                     <h3>{profile.name}</h3>
                     <div className="swipe-card-location">
-                      <MapPin size={16} className="location-icon" />
+                      <span className="location-icon" role="img" aria-label="localisation">📍</span>
                       <span>{profile.commune} (à {profile.distanceKm} km)</span>
                     </div>
                   </div>

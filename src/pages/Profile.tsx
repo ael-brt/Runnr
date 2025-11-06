@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getProfile, updateProfile, type Profile } from "../api";
 
 export default function ProfilePage() {
+  const nav = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getProfile().then(setProfile).catch(()=> setError("Impossible de charger le profil"));
+    getProfile()
+      .then(setProfile)
+      .catch(() => {
+        setError("Impossible de charger le profil");
+        nav("/signin");
+      });
   }, []);
 
   async function save() {

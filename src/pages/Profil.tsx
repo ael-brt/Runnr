@@ -348,6 +348,7 @@ export default function ProfilPage() {
                 <InfoItem icon={Target} label="Poids" value={profile.poids ? `${profile.poids} kg` : null} fieldKey="poids" onEditClick={handleEdit} />
                 <InfoItem icon={Target} label="Taille" value={profile.taille ? `${profile.taille} cm` : null} fieldKey="taille" onEditClick={handleEdit} />
                 
+                {/* NOUVEAU: InfoItem Objectif */}
                 <InfoItem icon={Flag} label="Objectif" value={profile.objectif} fieldKey="objectif" onEditClick={handleEdit} />
               </div>
             </div>

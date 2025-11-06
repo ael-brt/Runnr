@@ -1,11 +1,13 @@
-/* Runnr/src/pages/SwipePage.css (AJOUTS EN HAUT OU AU MILIEU) */
+/* Runnr/src/pages/SwipePage.css (AJOUTS) */
+
+/* ... (Styles .swipe-page-container, etc. existants) ... */
 
 /* Conteneur pour les filtres */
 .filter-container {
   width: 100%;
-  max-width: 350px; /* Un peu plus large que les cartes */
+  max-width: 350px; 
   margin-bottom: 16px;
-  padding: 10px;
+  padding: 10px 12px; /* Ajusté le padding */
   background-color: #ffffff;
   border-radius: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
@@ -21,6 +23,11 @@
   margin-bottom: 8px;
 }
 
+/* NOUVEAU: Classe pour ajouter une marge au 2ème filtre */
+.filter-label-secondary {
+  margin-top: 12px;
+}
+
 .filter-label svg {
   margin-right: 6px;
   color: #3B82F6; /* Bleu */
@@ -33,27 +40,31 @@
 }
 
 .filter-btn {
-  flex-grow: 1; /* Les boutons prennent une largeur égale */
-  padding: 8px 12px;
+  flex-grow: 1; 
+  padding: 8px 10px; /* Ajusté le padding */
   font-size: 14px;
   font-weight: 600;
   color: #333;
-  background-color: #f0f2f5; /* Fond gris clair */
-  border: 2px solid transparent; /* Bordure transparente pour garder la taille */
+  background-color: #f0f2f5; 
+  border: 2px solid transparent; 
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+/* MODIFICATION: Assurer que le texte ne passe pas à la ligne */
+.filter-btn:last-child {
+  white-space: nowrap; /* Empêche "Intermédiaire" de casser */
 }
 
 .filter-btn:hover {
   background-color: #e2e8f0;
 }
 
-/* Style du bouton de filtre ACTIF */
 .filter-btn.active {
-  background-color: #e0f2fe; /* Fond bleu très clair */
-  color: #0c4a6e; /* Bleu foncé */
-  border-color: #3B82F6; /* Bordure bleue */
+  background-color: #e0f2fe; 
+  color: #0c4a6e; 
+  border-color: #3B82F6; 
 }
 
 
@@ -68,24 +79,81 @@
 }
 
 
-/* (Assurez-vous que les styles précédents .swipe-card-deck, .swipe-card, etc. sont toujours là) */
-.swipe-page-container {
+/* ... (Styles .swipe-card-deck, .swipe-card existants) ... */
+
+
+/* Infos sur la carte */
+.swipe-card-info {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.swipe-card-info h3 {
+  margin: 0 0 4px 0; /* Ajout d'une marge en bas */
+  font-size: 1.75rem; /* 28px */
+}
+
+/* NOUVEAU: Style pour le niveau */
+.swipe-card-level {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  /* MODIFIÉ: Ajout de 'padding-top' pour faire de la place au filtre */
-  padding-top: 20px; 
-  justify-content: flex-start; /* Aligner en haut */
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden; 
-  background-color: #f0f2f5;
-  box-sizing: border-box; /* Important pour le padding */
+  font-size: 1rem; /* 16px */
+  font-weight: 500;
+  margin-top: 4px;
 }
 
-/* Supprimer le h2 (ou le styler) */
-.swipe-page-container > h2 {
-  display: none; /* Le filtre remplace ce titre */
+/* Style pour la localisation (existant) */
+.swipe-card-location {
+  display: flex;
+  align-items: center;
+  font-size: 1rem; /* 16px */
+  font-weight: 500;
+  margin-top: 4px;
 }
 
-/* ... (styles .swipe-card-deck, .swipe-card, .swipe-card-info, etc.) ... */
+/* NOUVEAU: Icône de niveau */
+.swipe-card-level .level-icon {
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* Icône de localisation (existante) */
+.swipe-card-location .location-icon {
+  margin-right: 6px;
+  flex-shrink: 0; 
+}
+/* Runnr/src/pages/SwipePage.css */
+
+/* ... (tous les styles .swipe-page-container, .page-header, .open-filters-btn, .swipe-card-deck, etc.) ... */
+
+/* ... (tous les styles .modal-overlay, .modal-content, .modal-header, .modal-body, etc.) ... */
+
+/* ... (styles .filter-group, .filter-label, .filter-options) ... */
+
+
+/* --- C'EST LA SEULE LIGNE À MODIFIER --- */
+.filter-btn {
+  flex-grow: 1; 
+  min-width: 70px; 
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  background-color: #f0f2f5; 
+  border: 2px solid transparent; 
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  /* SUPPRIMEZ la ligne 'white-space: nowrap;' d'ici */
+}
+
+.filter-btn:hover {
+  background-color: #e2e8f0;
+}
+
+.filter-btn.active {
+  background-color: #e0f2fe; 
+  color: #0c4a6e; 
+  border-color: #3B82F6; 
+}
+
+/* ... (tous les styles .modal-footer, .modal-apply-btn, etc.) ... */

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react'; // Ajout de 'useRef'
 import { 
   User, 
   CheckCircle, 
@@ -9,12 +9,14 @@ import {
   Info,
   ChevronRight,
   ClipboardList,
-  Pencil // L'icône du stylo
+  Pencil,
+  Camera // Ajout de l'icône Camera
 } from 'lucide-react';
 
 // --- Interface et Données de Test ---
 
 interface UserProfile {
+  profilePicture: string | null; // NOUVEAU: pour l'URL de la photo
   nom: string;
   prenom: string;
   age: number | null;
@@ -27,8 +29,8 @@ interface UserProfile {
 }
 
 // Données de test (INCOMPLET)
-// Renommé pour plus de clarté
 const mockProfileIncomplet: UserProfile = {
+  profilePicture: null, // NOUVEAU
   nom: "Dupont",
   prenom: "", // Champ incomplet
   age: 32,
@@ -39,8 +41,9 @@ const mockProfileIncomplet: UserProfile = {
   taille: undefined, // Champ incomplet
 };
 
-// --- AJOUT : Données de test pour un profil COMPLET ---
+// Données de test pour un profil COMPLET
 const mockProfileComplet: UserProfile = {
+  profilePicture: 'https://placehold.co/100x100/EBF8FF/3B82F6?text=AM', // NOUVEAU: Un placeholder
   nom: "Martin",
   prenom: "Alice",
   age: 28,
@@ -51,8 +54,9 @@ const mockProfileComplet: UserProfile = {
   taille: 168,
 };
 
-// Liste des champs que nous voulons suivre pour la complétion
+// Liste des champs à vérifier (incluant la photo)
 const PROFILE_FIELDS_TO_CHECK: (keyof UserProfile)[] = [
+  'profilePicture', // NOUVEAU
   'nom', 
   'prenom', 
   'age', 
@@ -69,11 +73,13 @@ export default function ProfilPage() {
   // On initialise avec le profil incomplet
   const [profile, setProfile] = React.useState<UserProfile>(mockProfileIncomplet);
 
-  // --- AJOUT : état pour savoir quel profil on teste ---
+  // état pour savoir quel profil on teste
   const [isTestingComplet, setIsTestingComplet] = React.useState(false);
+  
+  // NOUVEAU: Référence pour l'input de fichier caché
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Calcule le statut de complétion du profil
-  // useMemo évite de recalculer à chaque rendu, sauf si 'profile' change
   const completionStatus = useMemo(() => {
     let completedCount = 0;
     const missingFields: string[] = [];
@@ -85,7 +91,9 @@ export default function ProfilPage() {
         completedCount++;
       } else {
         // Capitaliser le nom du champ pour l'affichage
-        missingFields.push(key.charAt(0).toUpperCase() + key.slice(1));
+        let fieldName = key.charAt(0).toUpperCase() + key.slice(1);
+        if (key === 'profilePicture') fieldName = 'Photo de profil'; // Nom plus joli
+        missingFields.push(fieldName);
       }
     });
 
@@ -103,11 +111,10 @@ export default function ProfilPage() {
   // Fonction de placeholder pour la modification
   const handleEdit = (field: keyof UserProfile) => {
     // Pour l'instant, on affiche juste un message dans la console.
-    // Plus tard, cela pourra ouvrir un modal ou un champ d'édition.
     console.log(`Demande de modification pour le champ : ${field}`);
   };
 
-  // --- AJOUT : Fonction pour basculer les données de test ---
+  // Fonction pour basculer les données de test
   const handleToggleTestData = () => {
     if (isTestingComplet) {
       setProfile(mockProfileIncomplet);
@@ -116,6 +123,32 @@ export default function ProfilPage() {
       setProfile(mockProfileComplet);
       setIsTestingComplet(true);
     }
+  };
+
+  // NOUVEAU: Ouvre la boîte de dialogue de fichier
+  const handlePictureClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // NOUVEAU: Gère le fichier sélectionné
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return; // Pas de fichier sélectionné
+    }
+
+    // Crée une URL locale temporaire pour l'aperçu de l'image
+    const newPictureUrl = URL.createObjectURL(file);
+    
+    // Met à jour l'état du profil avec la nouvelle URL de l'image
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      profilePicture: newPictureUrl
+    }));
+
+    // Ici, vous ajouteriez la logique pour uploader le `file`
+    // vers votre backend (Django)
+    console.log("Fichier sélectionné, prêt pour l'upload:", file.name);
   };
 
 
@@ -153,10 +186,20 @@ export default function ProfilPage() {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 md:p-8">
+      {/* NOUVEAU: Input de fichier caché */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden" // Rendre l'input invisible
+        accept="image/png, image/jpeg" // N'accepter que les images
+        data-testid="file-input" // Utile pour les tests
+      />
+
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Mon Profil</h1>
 
-        {/* --- AJOUT : Bouton de Test --- */}
+        {/* --- Bouton de Test --- */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
           <h3 className="font-semibold text-blue-800">Zone de Test</h3>
           <p className="text-sm text-blue-700 mb-3">
@@ -170,16 +213,35 @@ export default function ProfilPage() {
             {isTestingComplet ? "Tester le Profil Incomplet" : "Tester le Profil Complet"}
           </button>
         </div>
-        {/* --- FIN AJOUT --- */}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* --- Carte Principale (Profil) --- */}
           <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-lg shadow-lg">
             <div className="flex items-center mb-6">
-              <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mr-6 border-4 border-white shadow-md">
-                <User className="w-10 h-10 text-blue-600" />
-              </div>
+              
+              {/* --- MODIFICATION: Avatar cliquable --- */}
+              <button
+                onClick={handlePictureClick}
+                className="relative w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mr-6 border-4 border-white shadow-md group transition-all"
+                aria-label="Modifier la photo de profil"
+              >
+                {profile.profilePicture ? (
+                  <img 
+                    src={profile.profilePicture} 
+                    alt="Photo de profil" 
+                    className="w-full h-full rounded-full object-cover" 
+                  />
+                ) : (
+                  <User className="w-10 h-10 text-blue-600" />
+                )}
+                {/* Overlay pour l'icône "modifier" */}
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-full flex items-center justify-center transition-all duration-300">
+                  <Camera className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </button>
+              {/* --- FIN MODIFICATION --- */}
+
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
                   {profile.prenom || 'Utilisateur'} {profile.nom || ''}
@@ -189,7 +251,6 @@ export default function ProfilPage() {
             </div>
 
             <div className="space-y-2">
-              {/* On passe les props 'fieldKey' et 'onEditClick' --- */}
               <InfoItem icon={User} label="Nom" value={profile.nom} fieldKey="nom" onEditClick={handleEdit} />
               <InfoItem icon={User} label="Prénom" value={profile.prenom} fieldKey="prenom" onEditClick={handleEdit} />
               <InfoItem icon={Calendar} label="Âge" value={profile.age ? `${profile.age} ans` : null} fieldKey="age" onEditClick={handleEdit} />

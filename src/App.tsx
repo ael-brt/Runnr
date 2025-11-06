@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 // import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
+import Profil from "./pages/Profil";
 
 export default function App() {
   return (

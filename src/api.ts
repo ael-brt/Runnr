@@ -58,3 +58,30 @@ export async function resetPasswordConfirm(params: { uid: string; token: string;
   if (!res.ok) throw new Error("reset_confirm_failed");
   return res.json();
 }
+
+export type Profile = {
+  level: string;
+  location_city: string;
+  goals: string;
+  availability_week: boolean;
+  availability_weekend: boolean;
+  completion?: number;
+  missing?: string[];
+};
+
+export async function getProfile(): Promise<Profile> {
+  const res = await fetch(`${BASE}/api/profile`, { credentials: "include" });
+  if (!res.ok) throw new Error("profile_fetch_failed");
+  return res.json();
+}
+
+export async function updateProfile(patch: Partial<Profile>) {
+  const res = await fetch(`${BASE}/api/profile/update`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error("profile_update_failed");
+  return res.json();
+}

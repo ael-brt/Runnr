@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
+from .models import Profile
 
 # FRONTEND_URL pour rediriger après login
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -120,10 +121,15 @@ def apple_callback_dispatch(request):
 @permission_classes([IsAuthenticated])
 def me(request):
     u = request.user
+    # Ensure profile exists
+    Profile.objects.get_or_create(user=u)
+    info = u.profile.completion_info()
     return Response({
         "id": u.id,
         "email": u.email,
         "name": u.get_full_name() or u.username,
+        "profile_completion": info["percent"],
+        "profile_missing": info["missing"],
     })
 
 @api_view(["POST"])  # POC: pas de CSRF exigé
@@ -159,6 +165,8 @@ def register_email(request):
         else:
             user.first_name = name
         user.save()
+    # Crée un profil vide associé
+    Profile.objects.get_or_create(user=user)
     login(request, user)
     return Response({"ok": True, "email": user.email})
 
@@ -223,3 +231,46 @@ def reset_password_confirm(request):
     user.set_password(new_password)
     user.save()
     return Response({"ok": True})
+
+# ---- Profile read/update ----
+@api_view(["GET"])  # infos profil + complétion
+@permission_classes([IsAuthenticated])
+def profile_get(request):
+    p, _ = Profile.objects.get_or_create(user=request.user)
+    info = p.completion_info()
+    return Response({
+        "level": p.level,
+        "location_city": p.location_city,
+        "goals": p.goals,
+        "availability_week": p.availability_week,
+        "availability_weekend": p.availability_weekend,
+        "completion": info["percent"],
+        "missing": info["missing"],
+    })
+
+@api_view(["PATCH", "POST"])  # POC: CSRF exempt
+@permission_classes([IsAuthenticated])
+@csrf_exempt
+def profile_update(request):
+    p, _ = Profile.objects.get_or_create(user=request.user)
+    try:
+        data = json.loads(request.body or b"{}")
+    except Exception:
+        data = {}
+    # Validate level
+    level = data.get("level")
+    if level is not None:
+        valid_levels = {c[0] for c in Profile.LEVEL_CHOICES}
+        if level not in valid_levels and level != "":
+            return Response({"error": "level invalide"}, status=400)
+        p.level = level
+    for f in ["location_city", "goals"]:
+        if f in data:
+            setattr(p, f, data.get(f) or "")
+    if "availability_week" in data:
+        p.availability_week = bool(data.get("availability_week"))
+    if "availability_weekend" in data:
+        p.availability_weekend = bool(data.get("availability_weekend"))
+    p.save()
+    info = p.completion_info()
+    return Response({"ok": True, "completion": info["percent"], "missing": info["missing"]})

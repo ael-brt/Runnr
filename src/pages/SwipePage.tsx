@@ -1,9 +1,12 @@
 // Runnr/src/pages/SwipePage.tsx
-import React, { useState, MouseEvent } from "react";
-import { MapPin } from 'lucide-react'; // 1. Importer l'icône de localisation
-import "./SwipePage.css"; // 2. Importer le fichier CSS
+import React, { useState, MouseEvent, useMemo, useEffect } from "react";
+// 1. Importer l'icône de filtre et l'icône de localisation
+import { MapPin, SlidersHorizontal } from 'lucide-react'; 
+import "./SwipePage.css"; 
 
-// 3. Mettre à jour l'interface pour inclure la commune et la distance
+// --- Données ---
+
+// Mettre à jour l'interface
 interface Profile {
   id: number;
   name: string;
@@ -12,46 +15,53 @@ interface Profile {
   distanceKm: number;
 }
 
-// 4. Mettre à jour les données de test
-const mockProfiles: Profile[] = [
+// 2. Déplacer les mocks à l'extérieur pour qu'ils
+// servent de "source de vérité" constante
+const masterProfileList: Profile[] = [
   { 
     id: 1, 
     name: "Alice", 
     imageUrl: "https://via.placeholder.com/300x400/FF0000/FFFFFF?text=Alice",
     commune: "Lyon",
-    distanceKm: 5
+    distanceKm: 5 // <= 5km
   },
   { 
     id: 2, 
     name: "Bob", 
     imageUrl: "https://via.placeholder.com/300x400/00FF00/FFFFFF?text=Bob",
     commune: "Villeurbanne",
-    distanceKm: 2
+    distanceKm: 2 // <= 5km
   },
   { 
     id: 3, 
     name: "Charlie", 
     imageUrl: "https://via.placeholder.com/300x400/0000FF/FFFFFF?text=Charlie",
     commune: "Paris",
-    distanceKm: 450 
+    distanceKm: 450 // > 25km
   },
   { 
     id: 4, 
     name: "Dana", 
     imageUrl: "https://via.placeholder.com/300x400/FFFF00/000000?text=Dana",
     commune: "Bron",
-    distanceKm: 8
+    distanceKm: 8 // <= 10km
+  },
+  { 
+    id: 5, 
+    name: "Eve", 
+    imageUrl: "https://via.placeholder.com/300x400/FF00FF/FFFFFF?text=Eve",
+    commune: "Vénissieux",
+    distanceKm: 12 // <= 25km
   },
 ];
 
-// État pour le glissement (drag)
+// --- État de glissement (Drag) ---
 interface DragState {
   isDragging: boolean;
-  startX: number; // Position X de départ du clic
-  deltaX: number; // Mouvement horizontal
-  deltaY: number; // Mouvement vertical (pour la rotation)
+  startX: number; 
+  deltaX: number; 
+  deltaY: number; 
 }
-
 const initialState: DragState = {
   isDragging: false,
   startX: 0,
@@ -59,11 +69,37 @@ const initialState: DragState = {
   deltaY: 0,
 };
 
+// --- Options de filtre ---
+const distanceOptions = [5, 10, 25];
+
+// --- Composant Principal ---
 export default function SwipePage() {
-  const [profiles, setProfiles] = useState(mockProfiles);
+  
+  // 3. Nouvel état pour le filtre de distance (par défaut à 25km)
+  const [selectedDistance, setSelectedDistance] = useState<number>(25);
+  
+  // 4. Nouvel état pour la pile de cartes *actives*
+  // (celles qui sont filtrées et pas encore swipées)
+  const [activeProfiles, setActiveProfiles] = useState<Profile[]>([]);
+  
+  // État pour le glissement
   const [dragState, setDragState] = useState(initialState);
 
-  // Gère le début du glissement (clic ou appui)
+  // 5. Logique de filtrage
+  // Calcule la liste filtrée à partir de la liste "master"
+  const filteredProfiles = useMemo(() => {
+    console.log(`Filtrage pour ${selectedDistance} km`);
+    return masterProfileList.filter(p => p.distanceKm <= selectedDistance);
+  }, [selectedDistance]);
+
+  // 6. Mettre à jour la pile de cartes lorsque le filtre change
+  // (Cela réinitialise la pile)
+  useEffect(() => {
+    setActiveProfiles(filteredProfiles);
+  }, [filteredProfiles]); // Se déclenche quand filteredProfiles est recalculé
+
+
+  // Gère le début du glissement
   const handleDragStart = (e: MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragState({
@@ -73,81 +109,90 @@ export default function SwipePage() {
     });
   };
 
-  // Gère le mouvement de la souris pendant le glissement
+  // Gère le mouvement de la souris
   const handleDragMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!dragState.isDragging || profiles.length === 0) return;
+    // 7. Mettre à jour la condition pour vérifier la pile active
+    if (!dragState.isDragging || activeProfiles.length === 0) return;
     e.preventDefault();
 
     const deltaX = e.clientX - dragState.startX;
-    // Simple calcul pour le deltaY (basé sur le centre vertical de l'écran)
     const deltaY = e.clientY - (window.innerHeight / 2); 
 
-    setDragState((prev) => ({
-      ...prev,
-      deltaX: deltaX,
-      deltaY: deltaY,
-    }));
+    setDragState((prev) => ({ ...prev, deltaX, deltaY }));
   };
 
-  // Gère la fin du glissement (relâchement du clic)
+  // Gère la fin du glissement
   const handleDragEnd = () => {
     if (!dragState.isDragging) return;
 
-    const swipeThreshold = 100; // 100px de mouvement pour valider un swipe
+    const swipeThreshold = 100; 
 
     if (Math.abs(dragState.deltaX) > swipeThreshold) {
-      // Swipe réussi (gauche ou droite)
       console.log(dragState.deltaX > 0 ? "Swipe Droite" : "Swipe Gauche");
-      // Retire le profil swipé de la liste
-      setProfiles((prevProfiles) => prevProfiles.slice(1));
+      
+      // 8. Mettre à jour la pile active
+      setActiveProfiles((prevProfiles) => prevProfiles.slice(1));
     }
 
-    // Réinitialise l'état du glissement
     setDragState(initialState);
   };
 
-  // Applique les transformations CSS à la carte active (celle du dessus)
+  // Applique les transformations CSS à la carte active
   const getCardStyle = () => {
-    if (!dragState.isDragging) {
-      return {}; // Pas de transformation si on ne glisse pas
-    }
-
-    const rotation = dragState.deltaX * 0.1; // Rotation basée sur le mouvement X
+    if (!dragState.isDragging) return {}; 
+    const rotation = dragState.deltaX * 0.1; 
     return {
       transform: `translateX(${dragState.deltaX}px) translateY(${dragState.deltaY / 3}px) rotate(${rotation}deg)`,
-      transition: "none", // On ne veut pas d'animation pendant le glissement
+      transition: "none", 
     };
   };
 
   return (
     <div 
       className="swipe-page-container"
-      // Écouteurs sur le conteneur pour un glissement fluide
       onMouseMove={handleDragMove}
       onMouseUp={handleDragEnd}
-      onMouseLeave={handleDragEnd} // Annule si la souris quitte la zone
+      onMouseLeave={handleDragEnd} 
     >
-      <h2>Swipe Page</h2>
+      
+      {/* 9. Section des Filtres */}
+      <div className="filter-container">
+        <div className="filter-label">
+          <SlidersHorizontal size={16} />
+          <span>Distance max</span>
+        </div>
+        <div className="filter-options">
+          {distanceOptions.map((distance) => (
+            <button
+              key={distance}
+              // Applique la classe 'active' si la distance est sélectionnée
+              className={`filter-btn ${selectedDistance === distance ? 'active' : ''}`}
+              onClick={() => setSelectedDistance(distance)}
+            >
+              {distance} km
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* 10. Mettre à jour la pile de cartes pour utiliser 'activeProfiles' */}
       <div className="swipe-card-deck">
-        {profiles.length > 0 ? (
-          profiles
+        {activeProfiles.length > 0 ? (
+          activeProfiles
             .map((profile, index) => {
-              // On n'applique le style de glissement et les événements
-              // qu'à la carte du dessus (index 0)
+              // Carte du dessus (celle qu'on swiper)
               if (index === 0) {
                 return (
                   <div
                     key={profile.id}
                     className="swipe-card"
                     style={{ 
-                      // 5. Utiliser la variable CSS pour l'image de fond
                       '--card-image-url': `url(${profile.imageUrl})`, 
-                      ...getCardStyle(), // Applique le style de glissement
-                      zIndex: 100, // Toujours au-dessus
+                      ...getCardStyle(), 
+                      zIndex: 100, 
                     }}
                     onMouseDown={handleDragStart}
                   >
-                    {/* 6. Afficher les infos (nom, commune, distance) */}
                     <div className="swipe-card-info">
                       <h3>{profile.name}</h3>
                       <div className="swipe-card-location">
@@ -158,15 +203,16 @@ export default function SwipePage() {
                   </div>
                 );
               }
-              // Les autres cartes sont juste pour le visuel "stack"
+              // Cartes en dessous (pour l'effet de pile)
               return (
                 <div
                   key={profile.id}
                   className="swipe-card"
                   style={{
                     '--card-image-url': `url(${profile.imageUrl})`,
-                    zIndex: 99 - index, // Z-index décroissant
+                    zIndex: 99 - index, 
                     transform: `translateY(${index * 4}px) scale(${1 - index * 0.02})`, 
+                    opacity: (1 - index * 0.1) // Optionnel: fondre les cartes en dessous
                   }}
                 >
                   <div className="swipe-card-info">
@@ -179,9 +225,12 @@ export default function SwipePage() {
                 </div>
               );
             })
-            .reverse() // On inverse pour que l'index 0 soit le dernier (au-dessus)
+            .reverse() 
         ) : (
-          <div>Plus de profils à voir !</div>
+          // 11. Message si aucun profil ne correspond au filtre
+          <div className="no-profiles-message">
+            Aucun profil trouvé à moins de {selectedDistance} km.
+          </div>
         )}
       </div>
     </div>

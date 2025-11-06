@@ -21,6 +21,10 @@ export default function Dashboard() {
     <div className="p-6 space-y-3">
       <h1 className="text-2xl font-bold">Dashboard</h1>
       <p>Bienvenue {me.name} ({me.email})</p>
+      <div>
+        <button className="border px-3 py-2 rounded mr-2" onClick={()=> nav(`/u/${me.id}`)}>Voir mon profil public</button>
+        <button className="border px-3 py-2 rounded" onClick={()=> nav('/profile')}>Éditer mon profil</button>
+      </div>
       {typeof me.profile_completion === 'number' && me.profile_completion < 100 && (
         <div className="border p-3 rounded bg-yellow-50">
           <div className="font-semibold">Profil incomplet ({me.profile_completion}%)</div>

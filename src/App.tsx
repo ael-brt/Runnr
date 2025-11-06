@@ -5,6 +5,7 @@ import SignUp from "./pages/SignUp";
 import ResetRequest from "./pages/ResetRequest";
 import ResetConfirm from "./pages/ResetConfirm";
 import ProfilePage from "./pages/Profile";
+import ProfileView from "./pages/ProfileView";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/reset/confirm" element={<ResetConfirm />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/u/:id" element={<ProfileView />} />
       <Route path="*" element={<div>404</div>} />
     </Routes>
   );

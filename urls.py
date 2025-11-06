@@ -8,6 +8,7 @@ from authapp.views import (
     register_email, login_email,
     request_password_reset, reset_password_confirm,
     profile_get, profile_update,
+    public_profile,
 )
 
 urlpatterns = [
@@ -28,4 +29,5 @@ urlpatterns = [
     path("api/reset-password-confirm", reset_password_confirm, name="reset_password_confirm"),
     path("api/profile", profile_get, name="profile_get"),
     path("api/profile/update", profile_update, name="profile_update"),
+    path("api/users/<int:user_id>/profile", public_profile, name="public_profile"),
 ]

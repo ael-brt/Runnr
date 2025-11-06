@@ -15,6 +15,9 @@ class Profile(models.Model):
     goals = models.TextField(blank=True, default="")
     availability_week = models.BooleanField(default=False)
     availability_weekend = models.BooleanField(default=False)
+    # Performances
+    distances = models.CharField(max_length=128, blank=True, default="")  # ex: "5k,10k,semi"
+    speed_kmh = models.FloatField(blank=True, null=True)  # vitesse moyenne
 
     def completion_info(self):
         required = {
@@ -31,4 +34,3 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile<{self.user_id}>"
-

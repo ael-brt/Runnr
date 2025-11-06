@@ -71,6 +71,18 @@ export default function ProfilePage() {
           </label>
         </div>
 
+        <label className="block">
+          <span className="text-sm">Distances (ex: 5k,10k,semi)</span>
+          <input className="border w-full p-2 rounded" value={profile.distances || ""}
+            onChange={(e)=> setProfile({ ...profile, distances: e.target.value })} />
+        </label>
+
+        <label className="block">
+          <span className="text-sm">Vitesse moyenne (km/h)</span>
+          <input className="border w-full p-2 rounded" type="number" step="0.1" value={profile.speed_kmh ?? ""}
+            onChange={(e)=> setProfile({ ...profile, speed_kmh: e.target.value === "" ? null : Number(e.target.value) })} />
+        </label>
+
         <button className="border px-3 py-2 rounded" disabled={saving} onClick={save}>
           {saving ? "Sauvegarde…" : "Enregistrer"}
         </button>
@@ -78,4 +90,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

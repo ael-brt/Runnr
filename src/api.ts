@@ -22,7 +22,14 @@ export async function registerEmail(data: { email: string; password: string; nam
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("register_failed");
+  if (!res.ok) {
+    try {
+      const j = await res.json();
+      throw new Error(j?.error || "register_failed");
+    } catch {
+      throw new Error("register_failed");
+    }
+  }
   return res.json();
 }
 
@@ -33,7 +40,14 @@ export async function loginEmail(data: { email: string; password: string }) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("login_failed");
+  if (!res.ok) {
+    try {
+      const j = await res.json();
+      throw new Error(j?.error || "login_failed");
+    } catch {
+      throw new Error("login_failed");
+    }
+  }
   return res.json();
 }
 
@@ -65,6 +79,8 @@ export type Profile = {
   goals: string;
   availability_week: boolean;
   availability_weekend: boolean;
+  distances?: string;
+  speed_kmh?: number | null;
   completion?: number;
   missing?: string[];
 };
@@ -77,11 +93,27 @@ export async function getProfile(): Promise<Profile> {
 
 export async function updateProfile(patch: Partial<Profile>) {
   const res = await fetch(`${BASE}/api/profile/update`, {
-    method: "PATCH",
+    method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
   if (!res.ok) throw new Error("profile_update_failed");
+  return res.json();
+}
+
+export type PublicProfile = {
+  id: number;
+  name: string;
+  level: string;
+  location_city: string;
+  goals: string;
+  distances: string;
+  speed_kmh: number | null;
+};
+
+export async function getPublicProfile(userId: number | string): Promise<PublicProfile> {
+  const res = await fetch(`${BASE}/api/users/${userId}/profile`, { credentials: "include" });
+  if (!res.ok) throw new Error("public_profile_fetch_failed");
   return res.json();
 }

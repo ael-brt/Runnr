@@ -10,6 +10,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.views.decorators.csrf import csrf_exempt
 
 # FRONTEND_URL pour rediriger après login
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -79,8 +80,9 @@ def me(request):
         "name": u.get_full_name() or u.username,
     })
 
-@api_view(["POST"])
+@api_view(["POST"])  # POC: pas de CSRF exigé
 @permission_classes([AllowAny])
+@csrf_exempt
 def logout_view(request):
     # Efface les cookies côté client
     resp = JsonResponse({"ok": True})

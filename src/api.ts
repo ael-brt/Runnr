@@ -1,5 +1,7 @@
+const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export async function getMe() {
-  const res = await fetch("http://localhost:8000/api/me", {
+  const res = await fetch(`${BASE}/api/me`, {
     credentials: "include",
   });
   if (!res.ok) throw new Error("unauthenticated");
@@ -7,7 +9,7 @@ export async function getMe() {
 }
 
 export async function logoutApi() {
-  await fetch("http://localhost:8000/api/logout", {
+  await fetch(`${BASE}/api/logout`, {
     method: "POST",
     credentials: "include",
   });

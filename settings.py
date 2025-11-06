@@ -1,7 +1,8 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Ce fichier est à la racine du dépôt, donc BASE_DIR = dossier courant
+BASE_DIR = Path(__file__).resolve().parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret")
 DEBUG = True
@@ -14,9 +15,18 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 INSTALLED_APPS = [
-    "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
-    "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "rest_framework", "corsheaders", "social_django",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    # 3rd‑party
+    "rest_framework",
+    "corsheaders",
+    "social_django",
+    # apps
+    "authapp",
 ]
 
 MIDDLEWARE = [
@@ -28,6 +38,38 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
 ]
+
+# Fichiers de configuration du projet
+ROOT_URLCONF = "urls"
+WSGI_APPLICATION = "wsgi.application"
+ASGI_APPLICATION = "asgi.application"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                # social-auth
+                "social_django.context_processors.backends",
+                "social_django.context_processors.login_redirect",
+            ],
+        },
+    }
+]
+
+# Base de données SQLite par défaut
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
 
 AUTHENTICATION_BACKENDS = (
     "social_core.backends.google.GoogleOAuth2",
@@ -48,8 +90,14 @@ LOGIN_URL = "/auth/google/login"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
+        # Utilise la session créée par login(request, user)
+        "rest_framework.authentication.SessionAuthentication",
+        # Optionnel: permet d'utiliser un header Authorization: Bearer
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-    )
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.AllowAny",
+    ),
 }
 
 from datetime import timedelta
@@ -62,3 +110,18 @@ SIMPLE_JWT = {
 # Cookies pour renvoyer les JWT de manière sécurisée
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# Autres réglages courants
+LANGUAGE_CODE = "fr-fr"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = "static/"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

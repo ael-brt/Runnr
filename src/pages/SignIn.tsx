@@ -1,5 +1,5 @@
 export default function SignIn() {
-  const backend = "http://localhost:8000";
+  const backend = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
   const loginUrl = `${backend}/auth/google/login`;
 
   return (

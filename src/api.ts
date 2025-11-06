@@ -14,3 +14,47 @@ export async function logoutApi() {
     credentials: "include",
   });
 }
+
+export async function registerEmail(data: { email: string; password: string; name?: string }) {
+  const res = await fetch(`${BASE}/api/register`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("register_failed");
+  return res.json();
+}
+
+export async function loginEmail(data: { email: string; password: string }) {
+  const res = await fetch(`${BASE}/api/login`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("login_failed");
+  return res.json();
+}
+
+export async function requestPasswordReset(email: string) {
+  const res = await fetch(`${BASE}/api/request-password-reset`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error("reset_request_failed");
+  return res.json();
+}
+
+export async function resetPasswordConfirm(params: { uid: string; token: string; password: string }) {
+  const res = await fetch(`${BASE}/api/reset-password-confirm`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error("reset_confirm_failed");
+  return res.json();
+}

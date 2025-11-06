@@ -73,12 +73,21 @@ DATABASES = {
 
 AUTHENTICATION_BACKENDS = (
     "social_core.backends.google.GoogleOAuth2",
+    "social_core.backends.facebook.FacebookOAuth2",
+    "social_core.backends.apple.AppleIdAuth",
     "django.contrib.auth.backends.ModelBackend",
 )
 
 # URLs du provider Google (crée tes credentials OAuth 2.0 côté Google Cloud)
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_CLIENT_ID")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+SOCIAL_AUTH_FACEBOOK_KEY = os.getenv("FACEBOOK_CLIENT_ID")
+SOCIAL_AUTH_FACEBOOK_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET")
+SOCIAL_AUTH_APPLE_SERVICES_ID = os.getenv("APPLE_SERVICES_ID")
+SOCIAL_AUTH_APPLE_BUNDLE_ID = os.getenv("APPLE_BUNDLE_ID")
+SOCIAL_AUTH_APPLE_TEAM = os.getenv("APPLE_TEAM_ID")
+SOCIAL_AUTH_APPLE_KEY = os.getenv("APPLE_KEY_ID")
+SOCIAL_AUTH_APPLE_SECRET = os.getenv("APPLE_PRIVATE_KEY", "")  # contenu de la clé privée (.p8)
 
 # Optionnel: limiter aux emails vérifiés
 SOCIAL_AUTH_GOOGLE_OAUTH2_USE_UNIQUE_USER_ID = True
@@ -125,3 +134,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Email (dev: console backend)
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "no-reply@runnr.local"

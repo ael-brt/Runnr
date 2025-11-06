@@ -1,0 +1,60 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/*
+  Le contenu principal prend toute la place disponible
+  et nous ajoutons un "rembourrage" en bas
+  de la hauteur de la barre de navigation 
+  pour que le contenu ne soit pas caché.
+*/
+.app-content {
+  flex-grow: 1;
+  padding-bottom: 80px; /* Doit être > que la hauteur de .bottom-nav */
+}
+
+/* Barre de navigation fixe en bas */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 70px; /* Hauteur de la barre */
+  
+  display: flex;
+  justify-content: space-around; /* Espace les icônes équitablement */
+  align-items: center;
+  
+  background-color: #ffffff;
+  border-top: 1px solid #e0e0e0;
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+  z-index: 1000; /* S'assure qu'elle est au-dessus du contenu */
+}
+
+.nav-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #8e8e8e; /* Couleur de l'icône inactive */
+  font-size: 12px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  padding: 5px 10px;
+}
+
+.nav-link:hover {
+  color: #555555;
+}
+
+/* C'est la magie de NavLink : la classe .active
+  est ajoutée automatiquement au lien
+  qui correspond à l'URL actuelle.
+*/
+.nav-link.active {
+  color: #3B82F6; /* Couleur bleue active (similaire à votre Profil.tsx) */
+  font-weight: 600;
+}

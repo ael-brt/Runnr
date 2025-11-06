@@ -1,0 +1,2 @@
+npm install --save-dev vitest jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event
+npm install react-router-dom

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil Utilisateur</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Un peu de style pour centrer */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Profil du Coureur</h1>
+
+        <!-- Section d'affichage du Profil -->
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="font-semibold text-gray-600">Nom:</label>
+                <span id="nom" class="ml-2 text-gray-900"></span>
+            </div>
+            <div>
+                <label class="font-semibold text-gray-600">Prénom:</label>
+                <span id="prenom" class="ml-2 text-gray-900"></span>
+            </div>
+            <div>
+                <label class="font-semibold text-gray-600">Âge:</label>
+                <span id="age" class="ml-2 text-gray-900"></span>
+            </div>
+            <div>
+                <label class="font-semibold text-gray-600">Genre:</label>
+                <span id="genre" class="ml-2 text-gray-900"></span>
+            </div>
+            <div>
+                <label class="font-semibold text-gray-600">Performances:</label>
+                <ul id="performance" class="list-disc list-inside ml-2 mt-2 text-gray-900">
+                    <!-- Les performances seront ajoutées ici par JS -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bouton de vérification -->
+        <button id="checkButton" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300">
+            Vérifier si le profil est complet
+        </button>
+
+        <!-- Zone de message pour l'alerte -->
+        <div id="messageBox" class="mt-4 p-4 rounded-md text-sm hidden">
+            <!-- Le message d'erreur ou de succès apparaîtra ici -->
+        </div>
+
+    </div>
+
+    <script>
+        // --- DONNÉES DE TEST ---
+        // On simule un profil utilisateur avec des champs manquants
+        // (prénom est vide, genre est null)
+        const userProfile = {
+            nom: "Dupont",
+            prenom: "", // Champ incomplet
+            age: 32,
+            genre: null, // Champ incomplet
+            performance: ["10km en 45min", "5km en 20min"] // Champ complet
+        };
+        // --- FIN DONNÉES DE TEST ---
+
+
+        // 1. Fonction pour afficher le profil au chargement
+        function displayProfile() {
+            // Remplir les champs de base
+            // L'opérateur '||' affiche un texte par défaut si la donnée est vide
+            document.getElementById('nom').textContent = userProfile.nom || 'Non renseigné';
+            document.getElementById('prenom').textContent = userProfile.prenom || 'Non renseigné';
+            document.getElementById('age').textContent = userProfile.age || 'Non renseigné';
+            document.getElementById('genre').textContent = userProfile.genre || 'Non renseigné';
+
+            // Gérer la liste des performances
+            const perfList = document.getElementById('performance');
+            perfList.innerHTML = ''; // Vider la liste
+            if (userProfile.performance && userProfile.performance.length > 0) {
+                userProfile.performance.forEach(perf => {
+                    const li = document.createElement('li');
+                    li.textContent = perf;
+                    perfList.appendChild(li);
+                });
+            } else {
+                // Si la liste est vide
+                const li = document.createElement('li');
+                li.textContent = 'Aucune performance enregistrée';
+                li.className = 'text-gray-500 italic';
+                perfList.appendChild(li);
+            }
+        }
+
+        // 2. Fonction pour la User Story 6 : Vérifier ce qu'il manque
+        function checkProfileCompletion() {
+            const missingFields = []; // Une liste pour stocker les champs manquants
+
+            // On vérifie chaque champ
+            // Note : on considère 0 comme un âge valide, mais pas `null`
+            if (!userProfile.nom) {
+                missingFields.push("Nom");
+            }
+            if (!userProfile.prenom) {
+                missingFields.push("Prénom");
+            }
+            if (userProfile.age === null || userProfile.age === undefined) {
+                missingFields.push("Âge");
+            }
+            if (!userProfile.genre) {
+                missingFields.push("Genre");
+            }
+            // On pourrait aussi vérifier si la liste de performances est vide
+            if (!userProfile.performance || userProfile.performance.length === 0) {
+                missingFields.push("Performances");
+            }
+
+            // 3. Afficher le message
+            const messageBox = document.getElementById('messageBox');
+            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700'); // Nettoyer
+
+            if (missingFields.length > 0) {
+                // Profil incomplet
+                messageBox.classList.add('bg-red-100', 'text-red-700');
+                // On crée le message d'erreur
+                messageBox.innerHTML = `<strong>Profil Incomplet!</strong><br>Veuillez renseigner les champs suivants :<br> - ${missingFields.join('<br> - ')}`;
+            } else {
+                // Profil complet
+                messageBox.classList.add('bg-green-100', 'text-green-700');
+                messageBox.innerHTML = `<strong>Profil Complet!</strong><br>Toutes les informations sont renseignées.`;
+            }
+            
+            messageBox.classList.remove('hidden'); // Rendre la boîte visible
+        }
+
+
+        // --- LIAISON DES ÉVÉNEMENTS ---
+
+        // Quand la page est chargée, afficher le profil
+        document.addEventListener('DOMContentLoaded', displayProfile);
+
+        // Quand on clique sur le bouton, vérifier le profil
+        document.getElementById('checkButton').addEventListener('click', checkProfileCompletion);
+
+    </script>
+
+</body>
+</html>

@@ -1,57 +1,65 @@
 // Runnr/src/pages/SwipePage.tsx
 import React, { useState, MouseEvent, useMemo, useEffect } from "react";
-// 1. Importer l'icône de filtre et l'icône de localisation
-import { MapPin, SlidersHorizontal } from 'lucide-react'; 
+// 1. Importer les icônes pour les filtres et les cartes
+import { MapPin, SlidersHorizontal, Gauge } from 'lucide-react'; 
 import "./SwipePage.css"; 
 
-// --- Données ---
+// --- Types et Données ---
 
-// Mettre à jour l'interface
+// 2. Définir le type pour le niveau
+type Level = 'Tous' | 'Débutant' | 'Intermédiaire' | 'Confirmé';
+
+// 3. Mettre à jour l'interface Profile
 interface Profile {
   id: number;
   name: string;
   imageUrl: string;
   commune: string;
   distanceKm: number;
+  level: Omit<Level, 'Tous'>; // Le niveau d'un profil ne peut pas être 'Tous'
 }
 
-// 2. Déplacer les mocks à l'extérieur pour qu'ils
-// servent de "source de vérité" constante
+// 4. Mettre à jour la "source de vérité" avec les niveaux
 const masterProfileList: Profile[] = [
   { 
     id: 1, 
     name: "Alice", 
     imageUrl: "https://via.placeholder.com/300x400/FF0000/FFFFFF?text=Alice",
     commune: "Lyon",
-    distanceKm: 5 // <= 5km
+    distanceKm: 5,
+    level: 'Intermédiaire'
   },
   { 
     id: 2, 
     name: "Bob", 
     imageUrl: "https://via.placeholder.com/300x400/00FF00/FFFFFF?text=Bob",
     commune: "Villeurbanne",
-    distanceKm: 2 // <= 5km
+    distanceKm: 2,
+    level: 'Débutant'
   },
   { 
     id: 3, 
     name: "Charlie", 
     imageUrl: "https://via.placeholder.com/300x400/0000FF/FFFFFF?text=Charlie",
     commune: "Paris",
-    distanceKm: 450 // > 25km
+    distanceKm: 450,
+    level: 'Confirmé'
   },
   { 
     id: 4, 
     name: "Dana", 
     imageUrl: "https://via.placeholder.com/300x400/FFFF00/000000?text=Dana",
     commune: "Bron",
-    distanceKm: 8 // <= 10km
+    distanceKm: 8,
+    level: 'Intermédiaire'
   },
   { 
     id: 5, 
     name: "Eve", 
     imageUrl: "https://via.placeholder.com/300x400/FF00FF/FFFFFF?text=Eve",
     commune: "Vénissieux",
-    distanceKm: 12 // <= 25km
+    distanceKm: 12,
+    level: 'Débutant'
   },
 ];
 
@@ -71,35 +79,47 @@ const initialState: DragState = {
 
 // --- Options de filtre ---
 const distanceOptions = [5, 10, 25];
+const levelOptions: Level[] = ['Tous', 'Débutant', 'Intermédiaire', 'Confirmé'];
 
 // --- Composant Principal ---
 export default function SwipePage() {
   
-  // 3. Nouvel état pour le filtre de distance (par défaut à 25km)
+  // États des filtres
   const [selectedDistance, setSelectedDistance] = useState<number>(25);
+  // 5. Nouvel état pour le filtre de niveau
+  const [selectedLevel, setSelectedLevel] = useState<Level>('Tous');
   
-  // 4. Nouvel état pour la pile de cartes *actives*
-  // (celles qui sont filtrées et pas encore swipées)
+  // Pile de cartes actives (filtrées et non swipées)
   const [activeProfiles, setActiveProfiles] = useState<Profile[]>([]);
   
   // État pour le glissement
   const [dragState, setDragState] = useState(initialState);
 
-  // 5. Logique de filtrage
-  // Calcule la liste filtrée à partir de la liste "master"
+  // 6. Logique de filtrage (useMemo)
+  // Se met à jour si la distance OU le niveau change
   const filteredProfiles = useMemo(() => {
-    console.log(`Filtrage pour ${selectedDistance} km`);
-    return masterProfileList.filter(p => p.distanceKm <= selectedDistance);
-  }, [selectedDistance]);
+    console.log(`Filtrage pour: ${selectedDistance} km ET ${selectedLevel}`);
+    
+    // Étape 1: Filtrer par distance
+    let profiles = masterProfileList.filter(p => p.distanceKm <= selectedDistance);
+    
+    // Étape 2: Filtrer par niveau (si 'Tous' n'est pas sélectionné)
+    if (selectedLevel !== 'Tous') {
+      profiles = profiles.filter(p => p.level === selectedLevel);
+    }
+    
+    return profiles;
+  // 7. Ajouter selectedLevel aux dépendances
+  }, [selectedDistance, selectedLevel]);
 
-  // 6. Mettre à jour la pile de cartes lorsque le filtre change
-  // (Cela réinitialise la pile)
+  // Mettre à jour la pile de cartes lorsque les filtres changent
   useEffect(() => {
     setActiveProfiles(filteredProfiles);
-  }, [filteredProfiles]); // Se déclenche quand filteredProfiles est recalculé
+  }, [filteredProfiles]); 
 
 
-  // Gère le début du glissement
+  // --- Logique de Swipe ---
+
   const handleDragStart = (e: MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragState({
@@ -109,35 +129,25 @@ export default function SwipePage() {
     });
   };
 
-  // Gère le mouvement de la souris
   const handleDragMove = (e: MouseEvent<HTMLDivElement>) => {
-    // 7. Mettre à jour la condition pour vérifier la pile active
     if (!dragState.isDragging || activeProfiles.length === 0) return;
     e.preventDefault();
-
     const deltaX = e.clientX - dragState.startX;
     const deltaY = e.clientY - (window.innerHeight / 2); 
-
     setDragState((prev) => ({ ...prev, deltaX, deltaY }));
   };
 
-  // Gère la fin du glissement
   const handleDragEnd = () => {
     if (!dragState.isDragging) return;
-
     const swipeThreshold = 100; 
 
     if (Math.abs(dragState.deltaX) > swipeThreshold) {
       console.log(dragState.deltaX > 0 ? "Swipe Droite" : "Swipe Gauche");
-      
-      // 8. Mettre à jour la pile active
       setActiveProfiles((prevProfiles) => prevProfiles.slice(1));
     }
-
     setDragState(initialState);
   };
 
-  // Applique les transformations CSS à la carte active
   const getCardStyle = () => {
     if (!dragState.isDragging) return {}; 
     const rotation = dragState.deltaX * 0.1; 
@@ -145,6 +155,45 @@ export default function SwipePage() {
       transform: `translateX(${dragState.deltaX}px) translateY(${dragState.deltaY / 3}px) rotate(${rotation}deg)`,
       transition: "none", 
     };
+  };
+
+  // --- Rendu JSX ---
+
+  const renderProfileCard = (profile: Profile, index: number) => {
+    const isTopCard = index === 0;
+
+    return (
+      <div
+        key={profile.id}
+        className="swipe-card"
+        style={{ 
+          '--card-image-url': `url(${profile.imageUrl})`, 
+          zIndex: 100 - index, 
+          transform: isTopCard 
+            ? getCardStyle().transform 
+            : `translateY(${index * 4}px) scale(${1 - index * 0.02})`,
+          transition: isTopCard ? getCardStyle().transition : 'transform 0.3s ease-out',
+          opacity: (1 - index * 0.1)
+        }}
+        // N'attacher les événements de drag que sur la carte du dessus
+        onMouseDown={isTopCard ? handleDragStart : undefined}
+      >
+        <div className="swipe-card-info">
+          <h3>{profile.name}</h3>
+          
+          {/* 8. Afficher le niveau sur la carte */}
+          <div className="swipe-card-level">
+            <Gauge size={16} className="level-icon" />
+            <span>{profile.level}</span>
+          </div>
+          
+          <div className="swipe-card-location">
+            <MapPin size={16} className="location-icon" />
+            <span>{profile.commune} (à {profile.distanceKm} km)</span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -155,8 +204,10 @@ export default function SwipePage() {
       onMouseLeave={handleDragEnd} 
     >
       
-      {/* 9. Section des Filtres */}
+      {/* 9. Conteneur des filtres (regroupant les deux) */}
       <div className="filter-container">
+        
+        {/* Filtre Distance */}
         <div className="filter-label">
           <SlidersHorizontal size={16} />
           <span>Distance max</span>
@@ -165,7 +216,6 @@ export default function SwipePage() {
           {distanceOptions.map((distance) => (
             <button
               key={distance}
-              // Applique la classe 'active' si la distance est sélectionnée
               className={`filter-btn ${selectedDistance === distance ? 'active' : ''}`}
               onClick={() => setSelectedDistance(distance)}
             >
@@ -173,63 +223,33 @@ export default function SwipePage() {
             </button>
           ))}
         </div>
+        
+        {/* 10. Filtre Niveau */}
+        <div className="filter-label filter-label-secondary"> {/* Classe pour marge */}
+          <Gauge size={16} />
+          <span>Niveau partenaire</span>
+        </div>
+        <div className="filter-options">
+          {levelOptions.map((level) => (
+            <button
+              key={level}
+              className={`filter-btn ${selectedLevel === level ? 'active' : ''}`}
+              onClick={() => setSelectedLevel(level)}
+            >
+              {level}
+            </button>
+          ))}
+        </div>
       </div>
       
-      {/* 10. Mettre à jour la pile de cartes pour utiliser 'activeProfiles' */}
+      {/* Pile de cartes */}
       <div className="swipe-card-deck">
         {activeProfiles.length > 0 ? (
-          activeProfiles
-            .map((profile, index) => {
-              // Carte du dessus (celle qu'on swiper)
-              if (index === 0) {
-                return (
-                  <div
-                    key={profile.id}
-                    className="swipe-card"
-                    style={{ 
-                      '--card-image-url': `url(${profile.imageUrl})`, 
-                      ...getCardStyle(), 
-                      zIndex: 100, 
-                    }}
-                    onMouseDown={handleDragStart}
-                  >
-                    <div className="swipe-card-info">
-                      <h3>{profile.name}</h3>
-                      <div className="swipe-card-location">
-                        <MapPin size={16} className="location-icon" />
-                        <span>{profile.commune} (à {profile.distanceKm} km)</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-              // Cartes en dessous (pour l'effet de pile)
-              return (
-                <div
-                  key={profile.id}
-                  className="swipe-card"
-                  style={{
-                    '--card-image-url': `url(${profile.imageUrl})`,
-                    zIndex: 99 - index, 
-                    transform: `translateY(${index * 4}px) scale(${1 - index * 0.02})`, 
-                    opacity: (1 - index * 0.1) // Optionnel: fondre les cartes en dessous
-                  }}
-                >
-                  <div className="swipe-card-info">
-                    <h3>{profile.name}</h3>
-                    <div className="swipe-card-location">
-                      <MapPin size={16} className="location-icon" />
-                      <span>{profile.commune} (à {profile.distanceKm} km)</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-            .reverse() 
+          activeProfiles.map(renderProfileCard).reverse()
         ) : (
-          // 11. Message si aucun profil ne correspond au filtre
+          // 11. Message "aucun profil" mis à jour
           <div className="no-profiles-message">
-            Aucun profil trouvé à moins de {selectedDistance} km.
+            Aucun profil ne correspond à vos filtres.
           </div>
         )}
       </div>

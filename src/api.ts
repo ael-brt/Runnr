@@ -205,3 +205,28 @@ export async function apiSwipe(targetId: number, direction: 'left' | 'right'): P
 
   return res.json(); // ex: { ok: true, match: false }
 }
+
+/**
+ * Signale un utilisateur.
+ * (Endpoint supposé : /api/report/<user_id>/)
+ */
+export async function reportUser(userId: number) {
+  const res = await fetch(`${BASE}/api/report/${userId}/`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}), // Envoyer un corps vide si nécessaire par le backend
+  });
+
+  if (!res.ok) {
+    console.error('Erreur lors du signalement de l\'utilisateur:', res.statusText);
+    try {
+      const j = await res.json();
+      throw new Error(j?.error || "report_failed");
+    } catch {
+      throw new Error("report_failed");
+    }
+  }
+  
+  return res.json(); // Renvoie la réponse de succès, ex: { ok: true }
+}

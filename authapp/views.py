@@ -1,7 +1,8 @@
 import os, urllib.parse, json
 from django.http import HttpResponseRedirect, JsonResponse
 from django.contrib.auth import login, logout, authenticate, get_user_model
-from django.views.decorators.http import require_GET
+# MODIFIÉ: Ajout de require_POST
+from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
 from django.shortcuts import redirect
 from social_django.utils import load_strategy, load_backend
@@ -14,13 +15,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
-# MODIFIÉ: Importer le nouveau modèle Report
-from .models import Profile, Report
+# MODIFIÉ: Ajout de login_required
+from django.contrib.auth.decorators import login_required
+# MODIFIÉ: Importer le nouveau modèle Report et Block
+from .models import Profile, Report, Block
 from .auth import CsrfExemptSessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # ... (toutes les vues existantes : google_login, me, profile_update, etc.) ...
-# (Collez ici tout le contenu existant de views.py jusqu'à public_profile)
+# (Tout le code de google_login jusqu'à public_profile reste identique)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 User = get_user_model()
 
@@ -326,52 +329,80 @@ def public_profile(request, user_id: int):
     }
     return Response(data)
 
-# ---- NOUVELLE VUE POUR LES SIGNALEMENTS ----
-# (Ce code fait passer tous les tests de test_reports.py)
+# ---- VUES MODIFIÉES/AJOUTÉES POUR SIGNALEMENT & BLOCAGE ----
 
-@csrf_exempt
-@api_view(["POST"])
+@login_required # Protège la vue
+@require_POST # N'accepte que les requêtes POST
+@api_view(["POST"]) # Garder pour la compatibilité DRF
 @authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
-@permission_classes([IsAuthenticated])  # Fait passer le test 'not_authenticated'
-def report_user(request):
+@permission_classes([IsAuthenticated])
+def api_report_user(request, user_id):
     """
-    Permet à l'utilisateur authentifié de signaler un autre utilisateur.
+    Permet à l'utilisateur authentifié de signaler un autre utilisateur
+    via un paramètre dans l'URL (ex: /api/report/123/)
+    REMPLACE l'ancienne vue 'report_user' qui prenait du JSON.
     """
     try:
-        data = json.loads(request.body or b"{}")
-        reported_user_id = data.get("reported_user_id")
-        reason = data.get("reason", "other")
-        details = data.get("details", "")
-    except Exception:
-        return Response({"error": "Données JSON invalides"}, status=400)
+        reported_user = User.objects.get(id=user_id)
+        reporter_user = request.user
 
-    # Fait passer le test 'missing_data'
-    if not reported_user_id:
-        return Response({"error": "reported_user_id requis"}, status=400)
+        if reporter_user.id == reported_user.id:
+            return Response({"error": "Vous ne pouvez pas vous signaler vous-même"}, status=400)
 
-    try:
-        reported_user = User.objects.get(pk=reported_user_id)
-    except User.DoesNotExist:
-        return Response({"error": "Utilisateur signalé introuvable"}, status=404)
-
-    reporter_user = request.user
-
-    # Fait passer le test 'cannot_report_self'
-    if reporter_user.id == reported_user.id:
-        return Response({"error": "Vous ne pouvez pas vous signaler vous-même"}, status=400)
-
-    # Fait passer le test 'create_report_success'
-    try:
-        Report.objects.create(
+        # Crée le signalement, 'get_or_create' évite les doublons
+        report, created = Report.objects.get_or_create(
             reporter=reporter_user,
             reported_user=reported_user,
-            reason=reason,
-            details=details
+            defaults={'reason': 'Signalé depuis la page de swipe'}
         )
-        # TODO (Optionnel): Bloquer l'utilisateur, forcer un "pass"
-        return Response({"ok": True})
+
+        if not created:
+            return Response({"ok": True, "message": "Utilisateur déjà signalé."})
         
+        return Response({"ok": True, "message": "Utilisateur signalé."})
+
+    except User.DoesNotExist:
+        return Response({"error": "Utilisateur signalé introuvable"}, status=404)
     except Exception as e:
-        # Gère le cas où le signalement existe déjà (unique_together)
-        # ou si 'reason' est invalide
         return Response({"error": f"Impossible de créer le signalement: {e}"}, status=500)
+
+
+@login_required # Protège la vue
+@require_POST # N'accepte que les requêtes POST
+@api_view(["POST"]) # Garder pour la compatibilité DRF
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def api_block_user(request, user_id):
+    """
+    Permet à l'utilisateur authentifié de bloquer un autre utilisateur
+    via un paramètre dans l'URL (ex: /api/block/123/)
+    """
+    try:
+        user_to_block = User.objects.get(id=user_id)
+        blocker_user = request.user
+
+        if blocker_user.id == user_to_block.id:
+            return Response({"error": "Vous ne pouvez pas vous bloquer vous-même"}, status=400)
+
+        # Crée le blocage, 'get_or_create' évite les doublons
+        block, created = Block.objects.get_or_create(
+            blocker=blocker_user,
+            blocked=user_to_block
+        )
+        
+        if not created:
+            return Response({"ok": True, "message": "Utilisateur déjà bloqué."})
+
+        # TODO (RAPPEL): Supprimer les "Match" existants si vous avez un modèle Match
+        # from django.db.models import Q
+        # Match.objects.filter(
+        #     (Q(user1=blocker_user) & Q(user2=user_to_block)) |
+        #     (Q(user1=user_to_block) & Q(user2=blocker_user))
+        # ).delete()
+
+        return Response({"ok": True, "message": "Utilisateur bloqué."})
+    
+    except User.DoesNotExist:
+        return Response({"error": "Utilisateur à bloquer introuvable"}, status=404)
+    except Exception as e:
+        return Response({"error": f"Impossible de bloquer l'utilisateur: {e}"}, status=500)

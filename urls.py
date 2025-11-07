@@ -32,4 +32,7 @@ urlpatterns = [
     path("api/profile/update", profile_update, name="profile_update"),
     path("api/report", auth_views.report_user, name="report_user"),
     path("api/users/<int:user_id>/profile", public_profile, name="public_profile"),
+    path('api/report/<int:user_id>/', views.api_report_user, name='api_report_user'),
+    path('api/block/<int:user_id>/', views.api_block_user, name='api_block_user'),
+    path('api/users/<int:user_id>/profile', views.public_profile, name='public_profile'),
 ]

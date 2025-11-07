@@ -230,3 +230,29 @@ export async function reportUser(userId: number) {
   
   return res.json(); // Renvoie la réponse de succès, ex: { ok: true }
 }
+
+/**
+ * NOUVELLE FONCTION: Bloque un utilisateur.
+ * (Endpoint supposé : /api/block/<user_id>/)
+ * Assurez-vous que cet endpoint existe sur votre backend.
+ */
+export async function blockUser(userId: number) {
+  const res = await fetch(`${BASE}/api/block/${userId}/`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}), // Envoyer un corps vide
+  });
+
+  if (!res.ok) {
+    console.error('Erreur lors du blocage de l\'utilisateur:', res.statusText);
+    try {
+      const j = await res.json();
+      throw new Error(j?.error || "block_failed");
+    } catch {
+      throw new Error("block_failed");
+    }
+  }
+  
+  return res.json(); // Renvoie la réponse de succès, ex: { ok: true }
+}

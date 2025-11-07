@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path
+from authapp import views as auth_views
 from authapp.views import (
     google_login, google_callback_dispatch,
     facebook_login, facebook_callback_dispatch,
@@ -29,5 +30,6 @@ urlpatterns = [
     path("api/reset-password-confirm", reset_password_confirm, name="reset_password_confirm"),
     path("api/profile", profile_get, name="profile_get"),
     path("api/profile/update", profile_update, name="profile_update"),
+    path("api/report", auth_views.report_user, name="report_user"),
     path("api/users/<int:user_id>/profile", public_profile, name="public_profile"),
 ]

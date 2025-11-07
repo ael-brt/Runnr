@@ -14,11 +14,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
-from .models import Profile
+# MODIFIÉ: Importer le nouveau modèle Report
+from .models import Profile, Report
 from .auth import CsrfExemptSessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-# FRONTEND_URL pour rediriger après login
+# ... (toutes les vues existantes : google_login, me, profile_update, etc.) ...
+# (Collez ici tout le contenu existant de views.py jusqu'à public_profile)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 User = get_user_model()
 
@@ -323,3 +325,53 @@ def public_profile(request, user_id: int):
         "speed_kmh": p.speed_kmh,
     }
     return Response(data)
+
+# ---- NOUVELLE VUE POUR LES SIGNALEMENTS ----
+# (Ce code fait passer tous les tests de test_reports.py)
+
+@csrf_exempt
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated])  # Fait passer le test 'not_authenticated'
+def report_user(request):
+    """
+    Permet à l'utilisateur authentifié de signaler un autre utilisateur.
+    """
+    try:
+        data = json.loads(request.body or b"{}")
+        reported_user_id = data.get("reported_user_id")
+        reason = data.get("reason", "other")
+        details = data.get("details", "")
+    except Exception:
+        return Response({"error": "Données JSON invalides"}, status=400)
+
+    # Fait passer le test 'missing_data'
+    if not reported_user_id:
+        return Response({"error": "reported_user_id requis"}, status=400)
+
+    try:
+        reported_user = User.objects.get(pk=reported_user_id)
+    except User.DoesNotExist:
+        return Response({"error": "Utilisateur signalé introuvable"}, status=404)
+
+    reporter_user = request.user
+
+    # Fait passer le test 'cannot_report_self'
+    if reporter_user.id == reported_user.id:
+        return Response({"error": "Vous ne pouvez pas vous signaler vous-même"}, status=400)
+
+    # Fait passer le test 'create_report_success'
+    try:
+        Report.objects.create(
+            reporter=reporter_user,
+            reported_user=reported_user,
+            reason=reason,
+            details=details
+        )
+        # TODO (Optionnel): Bloquer l'utilisateur, forcer un "pass"
+        return Response({"ok": True})
+        
+    except Exception as e:
+        # Gère le cas où le signalement existe déjà (unique_together)
+        # ou si 'reason' est invalide
+        return Response({"error": f"Impossible de créer le signalement: {e}"}, status=500)

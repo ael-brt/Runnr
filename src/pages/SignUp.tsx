@@ -26,7 +26,8 @@ export default function SignUp() {
               await registerEmail({ name, email, password });
               nav("/dashboard");
             } catch (e) {
-              setError("Inscription impossible");
+              const msg = e instanceof Error ? e.message : "Inscription impossible";
+              setError(msg);
             }
           }}
         >
@@ -45,4 +46,3 @@ export default function SignUp() {
     </div>
   );
 }
-

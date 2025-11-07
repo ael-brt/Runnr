@@ -6,7 +6,7 @@ from django.conf import settings
 from django.shortcuts import redirect
 from social_django.utils import load_strategy, load_backend
 from social_core.exceptions import AuthCanceled
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -14,6 +14,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
+from .models import Profile
+from .auth import CsrfExemptSessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # FRONTEND_URL pour rediriger après login
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -120,15 +123,21 @@ def apple_callback_dispatch(request):
 @permission_classes([IsAuthenticated])
 def me(request):
     u = request.user
+    # Ensure profile exists
+    Profile.objects.get_or_create(user=u)
+    info = u.profile.completion_info()
     return Response({
         "id": u.id,
         "email": u.email,
         "name": u.get_full_name() or u.username,
+        "profile_completion": info["percent"],
+        "profile_missing": info["missing"],
     })
 
-@api_view(["POST"])  # POC: pas de CSRF exigé
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: pas de CSRF exigé
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def logout_view(request):
     # Efface les cookies côté client
     resp = JsonResponse({"ok": True})
@@ -138,11 +147,12 @@ def logout_view(request):
     return resp
 
 # ---- Email/password sign-up & login ----
-@api_view(["POST"])  # POC: CSRF exempt pour simplicité front
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: CSRF exempt pour simplicité front
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def register_email(request):
-    data = json.loads(request.body or b"{}")
+    data = getattr(request, "data", None) or (json.loads(request.body or b"{}"))
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
     name = (data.get("name") or "").strip()
@@ -150,7 +160,10 @@ def register_email(request):
         return Response({"error": "email et mot de passe requis"}, status=400)
     if User.objects.filter(email=email).exists():
         return Response({"error": "email déjà utilisé"}, status=400)
-    user = User.objects.create_user(username=email, email=email, password=password)
+    try:
+        user = User.objects.create_user(username=email, email=email, password=password)
+    except Exception as e:
+        return Response({"error": "création utilisateur impossible"}, status=500)
     if name:
         # Tenter de découper prénom/nom simplement
         parts = name.split(" ", 1)
@@ -159,26 +172,39 @@ def register_email(request):
         else:
             user.first_name = name
         user.save()
+    # Crée un profil vide associé
+    Profile.objects.get_or_create(user=user)
     login(request, user)
     return Response({"ok": True, "email": user.email})
 
-@api_view(["POST"])  # POC: CSRF exempt
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: CSRF exempt
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def login_email(request):
-    data = json.loads(request.body or b"{}")
-    email = (data.get("email") or "").strip().lower()
+    data = getattr(request, "data", None) or (json.loads(request.body or b"{}"))
+    identifier = (data.get("email") or "").strip()  # peut être email OU username
+    email_lower = identifier.lower()
     password = data.get("password") or ""
-    user = authenticate(request, username=email, password=password)
+    # 1) tenter comme username direct (permet la connexion avec "admin")
+    user = authenticate(request, username=identifier, password=password)
+    # 2) sinon, tenter par email → username
+    if not user:
+        try:
+            u = User.objects.get(email=email_lower)
+            user = authenticate(request, username=u.username, password=password)
+        except User.DoesNotExist:
+            user = None
     if not user:
         return Response({"error": "identifiants invalides"}, status=400)
     login(request, user)
     return Response({"ok": True})
 
 # ---- Password reset ----
-@api_view(["POST"])  # POC: CSRF exempt
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: CSRF exempt
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def request_password_reset(request):
     data = json.loads(request.body or b"{}")
     email = (data.get("email") or "").strip().lower()
@@ -203,9 +229,10 @@ def request_password_reset(request):
     )
     return Response({"ok": True})
 
-@api_view(["POST"])  # POC: CSRF exempt
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: CSRF exempt
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def reset_password_confirm(request):
     data = json.loads(request.body or b"{}")
     uidb64 = data.get("uid") or ""
@@ -223,3 +250,76 @@ def reset_password_confirm(request):
     user.set_password(new_password)
     user.save()
     return Response({"ok": True})
+
+# ---- Profile read/update ----
+@api_view(["GET"])  # infos profil + complétion
+@permission_classes([IsAuthenticated])
+def profile_get(request):
+    p, _ = Profile.objects.get_or_create(user=request.user)
+    info = p.completion_info()
+    return Response({
+        "level": p.level,
+        "location_city": p.location_city,
+        "goals": p.goals,
+        "availability_week": p.availability_week,
+        "availability_weekend": p.availability_weekend,
+        "completion": info["percent"],
+        "missing": info["missing"],
+    })
+
+@csrf_exempt
+@api_view(["PATCH", "POST"])  # CSRF exempt à ce niveau (POC)
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def profile_update(request):
+    p, _ = Profile.objects.get_or_create(user=request.user)
+    try:
+        data = json.loads(request.body or b"{}")
+    except Exception:
+        data = {}
+    # Validate level
+    level = data.get("level")
+    if level is not None:
+        valid_levels = {c[0] for c in Profile.LEVEL_CHOICES}
+        if level not in valid_levels and level != "":
+            return Response({"error": "level invalide"}, status=400)
+        p.level = level
+    for f in ["location_city", "goals"]:
+        if f in data:
+            setattr(p, f, data.get(f) or "")
+    if "availability_week" in data:
+        p.availability_week = bool(data.get("availability_week"))
+    if "availability_weekend" in data:
+        p.availability_weekend = bool(data.get("availability_weekend"))
+    # Performances
+    if "distances" in data:
+        p.distances = (data.get("distances") or "").strip()
+    if "speed_kmh" in data:
+        try:
+            val = data.get("speed_kmh")
+            p.speed_kmh = float(val) if val not in (None, "") else None
+        except (TypeError, ValueError):
+            return Response({"error": "speed_kmh invalide"}, status=400)
+    p.save()
+    info = p.completion_info()
+    return Response({"ok": True, "completion": info["percent"], "missing": info["missing"]})
+
+# ---- Public profile view ----
+@api_view(["GET"])  # voir le profil d'un autre coureur
+@permission_classes([IsAuthenticated])
+def public_profile(request, user_id: int):
+    try:
+        other = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "utilisateur introuvable"}, status=404)
+    p, _ = Profile.objects.get_or_create(user=other)
+    data = {
+        "id": other.id,
+        "name": other.get_full_name() or other.username,
+        "level": p.level,
+        "location_city": p.location_city,
+        "goals": p.goals,
+        "distances": p.distances,
+        "speed_kmh": p.speed_kmh,
+    }
+    return Response(data)

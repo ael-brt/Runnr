@@ -25,11 +25,12 @@ export default function SignIn() {
               await loginEmail({ email, password });
               nav("/dashboard");
             } catch (e) {
-              setError("Identifiants invalides");
+              const msg = e instanceof Error ? e.message : "Identifiants invalides";
+              setError(msg);
             }
           }}
         >
-          <input className="border w-full p-2 rounded" placeholder="Email" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} />
+          <input className="border w-full p-2 rounded" placeholder="Email ou nom d'utilisateur" value={email} onChange={(e)=>setEmail(e.target.value)} />
           <input className="border w-full p-2 rounded" placeholder="Mot de passe" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} />
           <button className="border px-3 py-2 rounded w-full" type="submit">Se connecter</button>
         </form>

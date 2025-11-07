@@ -113,7 +113,61 @@ export type PublicProfile = {
 };
 
 export async function getPublicProfile(userId: number | string): Promise<PublicProfile> {
+  // ATTENTION: L'URL ici semble différer de celle que nous avons définie.
+  // Je garde la vôtre, mais l'URL du backend est peut-être "/api/u/<int:user_id>"
   const res = await fetch(`${BASE}/api/users/${userId}/profile`, { credentials: "include" });
   if (!res.ok) throw new Error("public_profile_fetch_failed");
+  return res.json();
+}
+
+
+// --- 1. AJOUTER CETTE CLASSE D'ERREUR ---
+/**
+ * Erreur personnalisée pour identifier une erreur 429 (limite de 'likes' atteinte).
+ */
+export class LikeLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LikeLimitError";
+  }
+}
+
+
+// --- 2. AJOUTER CETTE FONCTION ---
+/**
+ * Appelle l'API pour "liker" un utilisateur (US #11).
+ * C'est l'endpoint que nous avons créé : POST /api/swipe/like/<id>
+ */
+export async function likeUser(targetId: number): Promise<{ ok: boolean, is_match: boolean }> {
+  const res = await fetch(`${BASE}/api/swipe/like/${targetId}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}), // Envoyer un corps vide, comme requis par la vue
+  });
+
+  // Gestion des erreurs
+  if (!res.ok) {
+    // Cas spécifique : Limite atteinte
+    if (res.status === 429) {
+      try {
+        const j = await res.json();
+        // Lancer notre erreur personnalisée
+        throw new LikeLimitError(j?.error || "Limite de likes atteinte");
+      } catch (e) {
+        throw new LikeLimitError("Limite de likes atteinte");
+      }
+    }
+    
+    // Autres erreurs (404, 500...)
+    try {
+      const j = await res.json();
+      throw new Error(j?.error || "like_failed");
+    } catch {
+      throw new Error("like_failed");
+    }
+  }
+
+  // Succès
   return res.json();
 }

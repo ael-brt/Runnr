@@ -14,13 +14,19 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
-from .models import Profile
+
+# MODIFIÉ: Importer DailyLikeUsage
+from .models import Profile, DailyLikeUsage
+
 from .auth import CsrfExemptSessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # FRONTEND_URL pour rediriger après login
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 User = get_user_model()
+
+# AJOUT: Limite de 4 likes par jour (US #11)
+DAILY_LIKE_LIMIT = 4
 
 @require_GET
 def google_login(request):
@@ -323,3 +329,37 @@ def public_profile(request, user_id: int):
         "speed_kmh": p.speed_kmh,
     }
     return Response(data)
+
+# --- AJOUT DE LA NOUVELLE VUE (US #11) ---
+
+@csrf_exempt
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def swipe_like(request, target_user_id: int):
+    user = request.user
+    
+    try:
+        target_user = User.objects.get(pk=target_user_id)
+    except User.DoesNotExist:
+        return Response({"error": "Utilisateur cible introuvable"}, status=404)
+
+    if user.id == target_user_id:
+        return Response({"error": "Vous ne pouvez pas vous liker vous-même"}, status=400)
+
+    # Logique de limitation (US #11)
+    usage, _ = DailyLikeUsage.objects.get_or_create(user=user)
+    
+    if not usage.can_like(limit=DAILY_LIKE_LIMIT):
+        return Response(
+            {"error": "Limite de likes quotidiens atteinte"}, 
+            status=429 # 429 Too Many Requests
+        )
+    
+    # Le like est autorisé, on l'incrémente
+    usage.increment(limit=DAILY_LIKE_LIMIT)
+
+    # (Future logique de Match ici - US #12)
+    is_match = False 
+    
+    return Response({"ok": True, "is_match": is_match})

@@ -83,3 +83,58 @@
   width: 300px;
   height: 420px;
 }
+/* --- AJOUT DES STYLES POUR LA MODALE (popup) --- */
+/* Vous pouvez copier-coller ceci à la fin de votre fichier SwipePage.css */
+
+.limit-modal-overlay {
+  position: fixed; /* Reste en place même au scroll */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Fond semi-transparent */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* Au-dessus de tout le reste */
+  padding: 1rem;
+}
+
+.limit-modal-content {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 400px; /* Largeur max */
+  width: 100%;
+  text-align: center;
+}
+
+.limit-modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111; /* Couleur de texte foncée */
+}
+
+.limit-modal-content p {
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.limit-modal-button {
+  background-color: #007bff; /* Bleu (exemple) */
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.limit-modal-button:hover {
+  background-color: #0056b3;
+}

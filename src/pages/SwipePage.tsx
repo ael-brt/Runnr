@@ -1,47 +1,15 @@
 // Runnr/src/pages/SwipePage.tsx
-import React, { useState, MouseEvent } from "react";
-import "./SwipePage.css"; // 2. Importer le fichier CSS
+import React, { useState, MouseEvent, useEffect } from "react";
+import "./SwipePage.css"; // Importer le fichier CSS
+import { 
+  apiGetRecommendations, 
+  apiSwipe, 
+  LikeLimitReachedError, 
+  TotalActionLimitReachedError, 
+  SwipeProfile 
+} from "../api"; // Importer les fonctions et types de l'API
 
-// 3. Mettre à jour l'interface pour inclure la commune et la distance
-interface Profile {
-  id: number;
-  name: string;
-  imageUrl: string;
-  commune: string;
-  distanceKm: number;
-}
-
-// 4. Mettre à jour les données de test
-const mockProfiles: Profile[] = [
-  { 
-    id: 1, 
-    name: "Alice", 
-    imageUrl: "https://via.placeholder.com/300x400/FF0000/FFFFFF?text=Alice",
-    commune: "Lyon",
-    distanceKm: 5
-  },
-  { 
-    id: 2, 
-    name: "Bob", 
-    imageUrl: "https://via.placeholder.com/300x400/00FF00/FFFFFF?text=Bob",
-    commune: "Villeurbanne",
-    distanceKm: 2
-  },
-  { 
-    id: 3, 
-    name: "Charlie", 
-    imageUrl: "https://via.placeholder.com/300x400/0000FF/FFFFFF?text=Charlie",
-    commune: "Paris",
-    distanceKm: 450 
-  },
-  { 
-    id: 4, 
-    name: "Dana", 
-    imageUrl: "https://via.placeholder.com/300x400/FFFF00/000000?text=Dana",
-    commune: "Bron",
-    distanceKm: 8
-  },
-];
+// (L'interface Profile est maintenant importée en tant que SwipeProfile de api.ts)
 
 // État pour le glissement (drag)
 interface DragState {
@@ -59,11 +27,34 @@ const initialState: DragState = {
 };
 
 export default function SwipePage() {
-  const [profiles, setProfiles] = useState(mockProfiles);
+  const [profiles, setProfiles] = useState<SwipeProfile[]>([]);
   const [dragState, setDragState] = useState(initialState);
+  
+  // Nouveaux états pour gérer le chargement, les erreurs et les limites
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState<'like' | 'total' | null>(null);
+
+  // Charger les profils depuis l'API au montage
+  useEffect(() => {
+    setIsLoading(true);
+    apiGetRecommendations()
+      .then(data => {
+        setProfiles(data);
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError("Impossible de charger les profils.");
+        setIsLoading(false);
+      });
+  }, []); // [] = exécuter une seule fois
 
   // Gère le début du glissement (clic ou appui)
   const handleDragStart = (e: MouseEvent<HTMLDivElement>) => {
+    // Ne pas commencer le drag si la limite est atteinte ou si pas de profil
+    if (limitReached || profiles.length === 0) return;
+    
     e.preventDefault();
     setDragState({
       ...initialState,
@@ -74,11 +65,10 @@ export default function SwipePage() {
 
   // Gère le mouvement de la souris pendant le glissement
   const handleDragMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!dragState.isDragging || profiles.length === 0) return;
+    if (!dragState.isDragging || profiles.length === 0 || limitReached) return;
     e.preventDefault();
 
     const deltaX = e.clientX - dragState.startX;
-    // Simple calcul pour le deltaY (basé sur le centre vertical de l'écran)
     const deltaY = e.clientY - (window.innerHeight / 2); 
 
     setDragState((prev) => ({
@@ -89,16 +79,40 @@ export default function SwipePage() {
   };
 
   // Gère la fin du glissement (relâchement du clic)
-  const handleDragEnd = () => {
-    if (!dragState.isDragging) return;
+  const handleDragEnd = async () => {
+    if (!dragState.isDragging || limitReached) return;
 
     const swipeThreshold = 100; // 100px de mouvement pour valider un swipe
+    const direction = dragState.deltaX > 0 ? 'right' : 'left';
+    const profileId = profiles.length > 0 ? profiles[0].id : null;
 
-    if (Math.abs(dragState.deltaX) > swipeThreshold) {
+    if (Math.abs(dragState.deltaX) > swipeThreshold && profileId) {
       // Swipe réussi (gauche ou droite)
-      console.log(dragState.deltaX > 0 ? "Swipe Droite" : "Swipe Gauche");
-      // Retire le profil swipé de la liste
+      
+      // 1. Mise à jour optimiste de l'UI
+      const swipedProfile = profiles[0];
       setProfiles((prevProfiles) => prevProfiles.slice(1));
+      
+      try {
+        // 2. Appel API
+        const result = await apiSwipe(profileId, direction);
+        if (result.match) {
+          // TODO: Gérer l'affichage d'un match
+          alert("C'est un Match !");
+        }
+      } catch (err: any) {
+        // 3. Gérer les erreurs (limites, etc.)
+        if (err instanceof LikeLimitReachedError) {
+          setLimitReached('like');
+        } else if (err instanceof TotalActionLimitReachedError) {
+          setLimitReached('total');
+        } else {
+          // Erreur réseau ou autre
+          setError(err.message || "Erreur lors du swipe");
+          // Annuler la mise à jour optimiste (remettre le profil)
+          setProfiles(prev => [swipedProfile, ...prev]);
+        }
+      }
     }
 
     // Réinitialise l'état du glissement
@@ -107,46 +121,64 @@ export default function SwipePage() {
 
   // Applique les transformations CSS à la carte active (celle du dessus)
   const getCardStyle = () => {
-    if (!dragState.isDragging) {
-      return {}; // Pas de transformation si on ne glisse pas
+    if (!dragState.isDragging || limitReached) {
+      return {}; // Pas de transformation
     }
 
-    const rotation = dragState.deltaX * 0.1; // Rotation basée sur le mouvement X
+    const rotation = dragState.deltaX * 0.1; 
     return {
       transform: `translateX(${dragState.deltaX}px) translateY(${dragState.deltaY / 3}px) rotate(${rotation}deg)`,
-      transition: "none", // On ne veut pas d'animation pendant le glissement
+      transition: "none", 
     };
   };
 
   return (
     <div 
       className="swipe-page-container"
-      // Écouteurs sur le conteneur pour un glissement fluide
       onMouseMove={handleDragMove}
       onMouseUp={handleDragEnd}
-      onMouseLeave={handleDragEnd} // Annule si la souris quitte la zone
+      onMouseLeave={handleDragEnd} 
     >
       <h2>Swipe Page</h2>
+      
+      {/* Affichage des erreurs générales */}
+      {error && <div className="swipe-error-message">{error}</div>}
+      
       <div className="swipe-card-deck">
-        {profiles.length > 0 ? (
+        
+        {/* NOUVEL OVERLAY DE LIMITE ATTEINTE */}
+        {limitReached && (
+          <div className="limit-overlay">
+            <div className="limit-overlay-content">
+              <h3>Limite atteinte</h3>
+              {limitReached === 'like' && (
+                <p>Vous avez utilisé vos 4 likes gratuits. Revenez demain ou passez Premium pour des likes illimités !</p>
+              )}
+              {limitReached === 'total' && (
+                <p>Vous avez atteint votre limite de 10 actions aujourd'hui. Revenez demain ou passez Premium !</p>
+              )}
+              {/* <button>Devenir Premium</button> */}
+            </div>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div>Chargement des profils...</div>
+        ) : profiles.length > 0 ? (
           profiles
             .map((profile, index) => {
-              // On n'applique le style de glissement et les événements
-              // qu'à la carte du dessus (index 0)
               if (index === 0) {
                 return (
                   <div
                     key={profile.id}
                     className="swipe-card"
                     style={{ 
-                      // 5. Utiliser la variable CSS pour l'image de fond
                       '--card-image-url': `url(${profile.imageUrl})`, 
-                      ...getCardStyle(), // Applique le style de glissement
-                      zIndex: 100, // Toujours au-dessus
+                      ...getCardStyle(), 
+                      zIndex: 100, 
                     }}
-                    onMouseDown={handleDragStart}
+                    onMouseDown={handleDragStart} // Attaché ici
                   >
-                    {/* 6. Afficher les infos (nom, commune, distance) */}
                     <div className="swipe-card-info">
                       <h3>{profile.name}</h3>
                       <div className="swipe-card-location">
@@ -157,14 +189,14 @@ export default function SwipePage() {
                   </div>
                 );
               }
-              // Les autres cartes sont juste pour le visuel "stack"
+              // Les autres cartes
               return (
                 <div
                   key={profile.id}
                   className="swipe-card"
                   style={{
                     '--card-image-url': `url(${profile.imageUrl})`,
-                    zIndex: 99 - index, // Z-index décroissant
+                    zIndex: 99 - index, 
                     transform: `translateY(${index * 4}px) scale(${1 - index * 0.02})`, 
                   }}
                 >
@@ -178,9 +210,9 @@ export default function SwipePage() {
                 </div>
               );
             })
-            .reverse() // On inverse pour que l'index 0 soit le dernier (au-dessus)
+            .reverse() 
         ) : (
-          <div>Plus de profils à voir !</div>
+          !limitReached && <div>Plus de profils à voir ! Revenez plus tard.</div>
         )}
       </div>
     </div>

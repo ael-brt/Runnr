@@ -1,5 +1,23 @@
 const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
+// --- Erreurs personnalisées pour le Swipe ---
+
+export class LikeLimitReachedError extends Error {
+  constructor(message?: string) {
+    super(message || "Limite de likes atteinte");
+    this.name = "LikeLimitReachedError";
+  }
+}
+
+export class TotalActionLimitReachedError extends Error {
+  constructor(message?: string) {
+    super(message || "Limite d'actions atteinte");
+    this.name = "TotalActionLimitReachedError";
+  }
+}
+
+// --- Fonctions API existantes ---
+
 export async function getMe() {
   const res = await fetch(`${BASE}/api/me`, {
     credentials: "include",
@@ -116,4 +134,74 @@ export async function getPublicProfile(userId: number | string): Promise<PublicP
   const res = await fetch(`${BASE}/api/users/${userId}/profile`, { credentials: "include" });
   if (!res.ok) throw new Error("public_profile_fetch_failed");
   return res.json();
+}
+
+// --- NOUVELLES FONCTIONS POUR LE SWIPE ---
+
+// Le type de profil que la page de swipe attend
+// (basé sur votre mock, mais aligné sur PublicProfile)
+export interface SwipeProfile {
+  id: number;
+  name: string;
+  imageUrl: string; // L'API doit fournir ceci
+  commune: string; // Vient de 'location_city'
+  distanceKm: number; // L'API doit fournir ceci
+}
+
+/**
+ * Récupère les recommandations de profils à swiper.
+ * (Endpoint supposé)
+ */
+export async function apiGetRecommendations(): Promise<SwipeProfile[]> {
+  const res = await fetch(`${BASE}/api/recommendations`, { credentials: "include" });
+  if (!res.ok) throw new Error("recommendations_fetch_failed");
+  const data = await res.json();
+  
+  // Mapper les données de l'API vers le format SwipeProfile
+  // (Exemple de mapping)
+  return data.profiles.map((p: PublicProfile & { imageUrl: string, distanceKm: number }) => ({
+     id: p.id,
+     name: p.name,
+     imageUrl: p.imageUrl || `https://via.placeholder.com/300x400/CCCCCC/FFFFFF?text=${p.name}`,
+     commune: p.location_city,
+     distanceKm: p.distanceKm || 0
+  }));
+}
+
+/**
+ * Envoie un swipe au backend et gère les erreurs de limite.
+ * (Endpoint supposé)
+ */
+export async function apiSwipe(targetId: number, direction: 'left' | 'right'): Promise<{ ok: boolean, match?: boolean }> {
+  const res = await fetch(`${BASE}/api/swipe`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      target_id: targetId,
+      direction: direction,
+    }),
+  });
+
+  if (!res.ok) {
+    let errorData;
+    try {
+      errorData = await res.json();
+    } catch {
+      throw new Error("swipe_failed");
+    }
+
+    // Gérer les erreurs de limite spécifiques
+    if (errorData?.error === "LikeLimitReached") {
+      throw new LikeLimitReachedError();
+    }
+    if (errorData?.error === "TotalActionLimitReached") {
+      throw new TotalActionLimitReachedError();
+    }
+    
+    // Autre erreur backend
+    throw new Error(errorData?.error || "swipe_failed");
+  }
+
+  return res.json(); // ex: { ok: true, match: false }
 }

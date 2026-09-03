@@ -1,7 +1,8 @@
 import os, urllib.parse, json
 from django.http import HttpResponseRedirect, JsonResponse
 from django.contrib.auth import login, logout, authenticate, get_user_model
-from django.views.decorators.http import require_GET
+# MODIFIÉ: Ajout de require_POST
+from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
 from django.shortcuts import redirect
 from social_django.utils import load_strategy, load_backend
@@ -14,11 +15,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
-from .models import Profile
+# MODIFIÉ: Ajout de login_required
+from django.contrib.auth.decorators import login_required
+# MODIFIÉ: Importer le nouveau modèle Report et Block
+from .models import Profile, Report, Block
 from .auth import CsrfExemptSessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-# FRONTEND_URL pour rediriger après login
+# ... (toutes les vues existantes : google_login, me, profile_update, etc.) ...
+# (Tout le code de google_login jusqu'à public_profile reste identique)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 User = get_user_model()
 
@@ -323,3 +328,81 @@ def public_profile(request, user_id: int):
         "speed_kmh": p.speed_kmh,
     }
     return Response(data)
+
+# ---- VUES MODIFIÉES/AJOUTÉES POUR SIGNALEMENT & BLOCAGE ----
+
+@login_required # Protège la vue
+@require_POST # N'accepte que les requêtes POST
+@api_view(["POST"]) # Garder pour la compatibilité DRF
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def api_report_user(request, user_id):
+    """
+    Permet à l'utilisateur authentifié de signaler un autre utilisateur
+    via un paramètre dans l'URL (ex: /api/report/123/)
+    REMPLACE l'ancienne vue 'report_user' qui prenait du JSON.
+    """
+    try:
+        reported_user = User.objects.get(id=user_id)
+        reporter_user = request.user
+
+        if reporter_user.id == reported_user.id:
+            return Response({"error": "Vous ne pouvez pas vous signaler vous-même"}, status=400)
+
+        # Crée le signalement, 'get_or_create' évite les doublons
+        report, created = Report.objects.get_or_create(
+            reporter=reporter_user,
+            reported_user=reported_user,
+            defaults={'reason': 'Signalé depuis la page de swipe'}
+        )
+
+        if not created:
+            return Response({"ok": True, "message": "Utilisateur déjà signalé."})
+        
+        return Response({"ok": True, "message": "Utilisateur signalé."})
+
+    except User.DoesNotExist:
+        return Response({"error": "Utilisateur signalé introuvable"}, status=404)
+    except Exception as e:
+        return Response({"error": f"Impossible de créer le signalement: {e}"}, status=500)
+
+
+@login_required # Protège la vue
+@require_POST # N'accepte que les requêtes POST
+@api_view(["POST"]) # Garder pour la compatibilité DRF
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def api_block_user(request, user_id):
+    """
+    Permet à l'utilisateur authentifié de bloquer un autre utilisateur
+    via un paramètre dans l'URL (ex: /api/block/123/)
+    """
+    try:
+        user_to_block = User.objects.get(id=user_id)
+        blocker_user = request.user
+
+        if blocker_user.id == user_to_block.id:
+            return Response({"error": "Vous ne pouvez pas vous bloquer vous-même"}, status=400)
+
+        # Crée le blocage, 'get_or_create' évite les doublons
+        block, created = Block.objects.get_or_create(
+            blocker=blocker_user,
+            blocked=user_to_block
+        )
+        
+        if not created:
+            return Response({"ok": True, "message": "Utilisateur déjà bloqué."})
+
+        # TODO (RAPPEL): Supprimer les "Match" existants si vous avez un modèle Match
+        # from django.db.models import Q
+        # Match.objects.filter(
+        #     (Q(user1=blocker_user) & Q(user2=user_to_block)) |
+        #     (Q(user1=user_to_block) & Q(user2=blocker_user))
+        # ).delete()
+
+        return Response({"ok": True, "message": "Utilisateur bloqué."})
+    
+    except User.DoesNotExist:
+        return Response({"error": "Utilisateur à bloquer introuvable"}, status=404)
+    except Exception as e:
+        return Response({"error": f"Impossible de bloquer l'utilisateur: {e}"}, status=500)

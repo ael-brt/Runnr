@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path
+from authapp import views as auth_views
 from authapp.views import (
     google_login, google_callback_dispatch,
     facebook_login, facebook_callback_dispatch,

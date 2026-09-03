@@ -1,12 +1,13 @@
 import os, urllib.parse, json
 from django.http import HttpResponseRedirect, JsonResponse
 from django.contrib.auth import login, logout, authenticate, get_user_model
-from django.views.decorators.http import require_GET
+# MODIFIÉ: Ajout de require_POST
+from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
 from django.shortcuts import redirect
 from social_django.utils import load_strategy, load_backend
 from social_core.exceptions import AuthCanceled
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -18,7 +19,8 @@ from django.db import transaction
 from authapp.models import RunnerProfile
 from social_django.models import UserSocialAuth
 
-# FRONTEND_URL pour rediriger après login
+# ... (toutes les vues existantes : google_login, me, profile_update, etc.) ...
+# (Tout le code de google_login jusqu'à public_profile reste identique)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 User = get_user_model()
 
@@ -123,15 +125,21 @@ def apple_callback_dispatch(request):
 @permission_classes([IsAuthenticated])
 def me(request):
     u = request.user
+    # Ensure profile exists
+    Profile.objects.get_or_create(user=u)
+    info = u.profile.completion_info()
     return Response({
         "id": u.id,
         "email": u.email,
         "name": u.get_full_name() or u.username,
+        "profile_completion": info["percent"],
+        "profile_missing": info["missing"],
     })
 
-@api_view(["POST"])  # POC: pas de CSRF exigé
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: pas de CSRF exigé
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def logout_view(request):
     # Efface les cookies côté client
     resp = JsonResponse({"ok": True})
@@ -141,11 +149,12 @@ def logout_view(request):
     return resp
 
 # ---- Email/password sign-up & login ----
-@api_view(["POST"])  # POC: CSRF exempt pour simplicité front
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: CSRF exempt pour simplicité front
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def register_email(request):
-    data = json.loads(request.body or b"{}")
+    data = getattr(request, "data", None) or (json.loads(request.body or b"{}"))
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
     name = (data.get("name") or "").strip()
@@ -153,7 +162,10 @@ def register_email(request):
         return Response({"error": "email et mot de passe requis"}, status=400)
     if User.objects.filter(email=email).exists():
         return Response({"error": "email déjà utilisé"}, status=400)
-    user = User.objects.create_user(username=email, email=email, password=password)
+    try:
+        user = User.objects.create_user(username=email, email=email, password=password)
+    except Exception as e:
+        return Response({"error": "création utilisateur impossible"}, status=500)
     if name:
         # Tenter de découper prénom/nom simplement
         parts = name.split(" ", 1)
@@ -162,26 +174,39 @@ def register_email(request):
         else:
             user.first_name = name
         user.save()
+    # Crée un profil vide associé
+    Profile.objects.get_or_create(user=user)
     login(request, user)
     return Response({"ok": True, "email": user.email})
 
-@api_view(["POST"])  # POC: CSRF exempt
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: CSRF exempt
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def login_email(request):
-    data = json.loads(request.body or b"{}")
-    email = (data.get("email") or "").strip().lower()
+    data = getattr(request, "data", None) or (json.loads(request.body or b"{}"))
+    identifier = (data.get("email") or "").strip()  # peut être email OU username
+    email_lower = identifier.lower()
     password = data.get("password") or ""
-    user = authenticate(request, username=email, password=password)
+    # 1) tenter comme username direct (permet la connexion avec "admin")
+    user = authenticate(request, username=identifier, password=password)
+    # 2) sinon, tenter par email → username
+    if not user:
+        try:
+            u = User.objects.get(email=email_lower)
+            user = authenticate(request, username=u.username, password=password)
+        except User.DoesNotExist:
+            user = None
     if not user:
         return Response({"error": "identifiants invalides"}, status=400)
     login(request, user)
     return Response({"ok": True})
 
 # ---- Password reset ----
-@api_view(["POST"])  # POC: CSRF exempt
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: CSRF exempt
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def request_password_reset(request):
     data = json.loads(request.body or b"{}")
     email = (data.get("email") or "").strip().lower()
@@ -206,9 +231,10 @@ def request_password_reset(request):
     )
     return Response({"ok": True})
 
-@api_view(["POST"])  # POC: CSRF exempt
-@permission_classes([AllowAny])
 @csrf_exempt
+@api_view(["POST"])  # POC: CSRF exempt
+@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
+@permission_classes([AllowAny])
 def reset_password_confirm(request):
     data = json.loads(request.body or b"{}")
     uidb64 = data.get("uid") or ""

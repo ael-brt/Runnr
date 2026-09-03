@@ -10,9 +10,15 @@ DEBUG = True
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Vite
+    "http://127.0.0.1:5173",
     "http://localhost:3000",  # CRA
+    "http://127.0.0.1:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost(?::\d+)?$",
+    r"^http://127\.0\.0\.1(?::\d+)?$",
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

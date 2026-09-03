@@ -8,8 +8,7 @@ from authapp.views import (
     me, logout_view,
     register_email, login_email,
     request_password_reset, reset_password_confirm,
-    profile_get, profile_update,
-    public_profile,
+    delete_account,
 )
 
 urlpatterns = [
@@ -28,11 +27,5 @@ urlpatterns = [
     path("api/logout", logout_view, name="logout"),
     path("api/request-password-reset", request_password_reset, name="request_password_reset"),
     path("api/reset-password-confirm", reset_password_confirm, name="reset_password_confirm"),
-    path("api/profile", profile_get, name="profile_get"),
-    path("api/profile/update", profile_update, name="profile_update"),
-    path("api/report", auth_views.report_user, name="report_user"),
-    path("api/users/<int:user_id>/profile", public_profile, name="public_profile"),
-    path('api/report/<int:user_id>/', views.api_report_user, name='api_report_user'),
-    path('api/block/<int:user_id>/', views.api_block_user, name='api_block_user'),
-    path('api/users/<int:user_id>/profile', views.public_profile, name='public_profile'),
+    path("auth/delete_account", delete_account, name="delete_account"),
 ]

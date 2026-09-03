@@ -15,12 +15,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
-# MODIFIÉ: Ajout de login_required
-from django.contrib.auth.decorators import login_required
-# MODIFIÉ: Importer le nouveau modèle Report et Block
-from .models import Profile, Report, Block
-from .auth import CsrfExemptSessionAuthentication
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.db import transaction
+from authapp.models import RunnerProfile
+from social_django.models import UserSocialAuth
 
 # ... (toutes les vues existantes : google_login, me, profile_update, etc.) ...
 # (Tout le code de google_login jusqu'à public_profile reste identique)
@@ -256,153 +253,47 @@ def reset_password_confirm(request):
     user.save()
     return Response({"ok": True})
 
-# ---- Profile read/update ----
-@api_view(["GET"])  # infos profil + complétion
+# ======  Suppression de compte ======
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def profile_get(request):
-    p, _ = Profile.objects.get_or_create(user=request.user)
-    info = p.completion_info()
-    return Response({
-        "level": p.level,
-        "location_city": p.location_city,
-        "goals": p.goals,
-        "availability_week": p.availability_week,
-        "availability_weekend": p.availability_weekend,
-        "completion": info["percent"],
-        "missing": info["missing"],
-    })
-
-@csrf_exempt
-@api_view(["PATCH", "POST"])  # CSRF exempt à ce niveau (POC)
-@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
-@permission_classes([IsAuthenticated])
-def profile_update(request):
-    p, _ = Profile.objects.get_or_create(user=request.user)
+@csrf_exempt  # POC: comme tes autres endpoints
+def delete_account(request):
+    """
+    Supprime définitivement le compte et les données associées.
+    JSON attendu: { "confirm": "DELETE", "password": "<optionnel>" }
+    - Si le user a un mot de passe local, on le vérifie.
+    - Si compte social only, seule la confirmation texte est requise.
+    """
     try:
         data = json.loads(request.body or b"{}")
     except Exception:
-        data = {}
-    # Validate level
-    level = data.get("level")
-    if level is not None:
-        valid_levels = {c[0] for c in Profile.LEVEL_CHOICES}
-        if level not in valid_levels and level != "":
-            return Response({"error": "level invalide"}, status=400)
-        p.level = level
-    for f in ["location_city", "goals"]:
-        if f in data:
-            setattr(p, f, data.get(f) or "")
-    if "availability_week" in data:
-        p.availability_week = bool(data.get("availability_week"))
-    if "availability_weekend" in data:
-        p.availability_weekend = bool(data.get("availability_weekend"))
-    # Performances
-    if "distances" in data:
-        p.distances = (data.get("distances") or "").strip()
-    if "speed_kmh" in data:
-        try:
-            val = data.get("speed_kmh")
-            p.speed_kmh = float(val) if val not in (None, "") else None
-        except (TypeError, ValueError):
-            return Response({"error": "speed_kmh invalide"}, status=400)
-    p.save()
-    info = p.completion_info()
-    return Response({"ok": True, "completion": info["percent"], "missing": info["missing"]})
+        return Response({"error": "JSON invalide"}, status=400)
 
-# ---- Public profile view ----
-@api_view(["GET"])  # voir le profil d'un autre coureur
-@permission_classes([IsAuthenticated])
-def public_profile(request, user_id: int):
-    try:
-        other = User.objects.get(pk=user_id)
-    except User.DoesNotExist:
-        return Response({"error": "utilisateur introuvable"}, status=404)
-    p, _ = Profile.objects.get_or_create(user=other)
-    data = {
-        "id": other.id,
-        "name": other.get_full_name() or other.username,
-        "level": p.level,
-        "location_city": p.location_city,
-        "goals": p.goals,
-        "distances": p.distances,
-        "speed_kmh": p.speed_kmh,
-    }
-    return Response(data)
+    confirm = (data.get("confirm") or "").strip().upper()
+    if confirm != "DELETE":
+        return Response({"error": "confirmation requise: 'DELETE'"}, status=400)
 
-# ---- VUES MODIFIÉES/AJOUTÉES POUR SIGNALEMENT & BLOCAGE ----
+    user = request.user
+    password = data.get("password", "")
 
-@login_required # Protège la vue
-@require_POST # N'accepte que les requêtes POST
-@api_view(["POST"]) # Garder pour la compatibilité DRF
-@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
-@permission_classes([IsAuthenticated])
-def api_report_user(request, user_id):
-    """
-    Permet à l'utilisateur authentifié de signaler un autre utilisateur
-    via un paramètre dans l'URL (ex: /api/report/123/)
-    REMPLACE l'ancienne vue 'report_user' qui prenait du JSON.
-    """
-    try:
-        reported_user = User.objects.get(id=user_id)
-        reporter_user = request.user
+    # Vérification du mot de passe si utilisable
+    if user.has_usable_password():
+        if not password:
+            return Response({"error": "mot de passe requis"}, status=400)
+        if not user.check_password(password):
+            return Response({"error": "mot de passe incorrect"}, status=403)
 
-        if reporter_user.id == reported_user.id:
-            return Response({"error": "Vous ne pouvez pas vous signaler vous-même"}, status=400)
+    # Suppression transactionnelle
+    with transaction.atomic():
+        # Données liées (adapter si d'autres modèles existent)
+        RunnerProfile.objects.filter(user=user).delete()
+        UserSocialAuth.objects.filter(user=user).delete()
+        # Supprime l'utilisateur
+        user.delete()
 
-        # Crée le signalement, 'get_or_create' évite les doublons
-        report, created = Report.objects.get_or_create(
-            reporter=reporter_user,
-            reported_user=reported_user,
-            defaults={'reason': 'Signalé depuis la page de swipe'}
-        )
-
-        if not created:
-            return Response({"ok": True, "message": "Utilisateur déjà signalé."})
-        
-        return Response({"ok": True, "message": "Utilisateur signalé."})
-
-    except User.DoesNotExist:
-        return Response({"error": "Utilisateur signalé introuvable"}, status=404)
-    except Exception as e:
-        return Response({"error": f"Impossible de créer le signalement: {e}"}, status=500)
-
-
-@login_required # Protège la vue
-@require_POST # N'accepte que les requêtes POST
-@api_view(["POST"]) # Garder pour la compatibilité DRF
-@authentication_classes([CsrfExemptSessionAuthentication, JWTAuthentication])
-@permission_classes([IsAuthenticated])
-def api_block_user(request, user_id):
-    """
-    Permet à l'utilisateur authentifié de bloquer un autre utilisateur
-    via un paramètre dans l'URL (ex: /api/block/123/)
-    """
-    try:
-        user_to_block = User.objects.get(id=user_id)
-        blocker_user = request.user
-
-        if blocker_user.id == user_to_block.id:
-            return Response({"error": "Vous ne pouvez pas vous bloquer vous-même"}, status=400)
-
-        # Crée le blocage, 'get_or_create' évite les doublons
-        block, created = Block.objects.get_or_create(
-            blocker=blocker_user,
-            blocked=user_to_block
-        )
-        
-        if not created:
-            return Response({"ok": True, "message": "Utilisateur déjà bloqué."})
-
-        # TODO (RAPPEL): Supprimer les "Match" existants si vous avez un modèle Match
-        # from django.db.models import Q
-        # Match.objects.filter(
-        #     (Q(user1=blocker_user) & Q(user2=user_to_block)) |
-        #     (Q(user1=user_to_block) & Q(user2=blocker_user))
-        # ).delete()
-
-        return Response({"ok": True, "message": "Utilisateur bloqué."})
-    
-    except User.DoesNotExist:
-        return Response({"error": "Utilisateur à bloquer introuvable"}, status=404)
-    except Exception as e:
-        return Response({"error": f"Impossible de bloquer l'utilisateur: {e}"}, status=500)
+    # Déconnexion + suppression cookies
+    resp = Response({"ok": True, "message": "Compte et données supprimés."})
+    logout(request)
+    resp.delete_cookie("access_token")
+    resp.delete_cookie("refresh_token")
+    return resp
